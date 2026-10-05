@@ -79,7 +79,7 @@ pub async fn version_url(id: &str) -> Result<String, String> {
                 .get("url")
                 .and_then(|x| x.as_str())
                 .map(String::from)
-                .ok_or("версия без url");
+                .ok_or_else(|| format!("версия {id} без url"));
         }
     }
     Err(format!("версия {id} не найдена в манифесте"))

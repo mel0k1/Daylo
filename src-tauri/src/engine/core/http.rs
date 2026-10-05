@@ -33,6 +33,10 @@ pub async fn json(url: &str) -> Result<serde_json::Value, String> {
     serde_json::from_str(&body).map_err(|e| format!("разбор json {url}: {e}"))
 }
 
+fn to_hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
 fn digest_of<D: Digest>(path: &Path) -> Result<String, String> {
     let mut f = std::fs::File::open(path).map_err(|e| format!("чтение {}: {e}", path.display()))?;
     let mut h = D::new();
@@ -44,7 +48,7 @@ fn digest_of<D: Digest>(path: &Path) -> Result<String, String> {
         }
         h.update(&buf[..n]);
     }
-    Ok(format!("{:x}", h.finalize()))
+    Ok(to_hex(&h.finalize()))
 }
 
 pub fn sha1_of(path: &Path) -> Result<String, String> {
@@ -150,13 +154,13 @@ async fn download_once(
         }
     }
     if let Some(want) = sha1 {
-        let got = format!("{:x}", hasher1.finalize());
+        let got = to_hex(&hasher1.finalize());
         if !got.eq_ignore_ascii_case(want) {
             return Err(format!("{url}: sha1 {got}, ожидалось {want}"));
         }
     }
     if let Some(want) = sha256 {
-        let got = format!("{:x}", hasher2.finalize());
+        let got = to_hex(&hasher2.finalize());
         if !got.eq_ignore_ascii_case(want) {
             return Err(format!("{url}: sha256 {got}, ожидалось {want}"));
         }

@@ -94,9 +94,7 @@ pub async fn ensure_java(major: u32) -> Result<PathBuf, String> {
     let inner = first_dir_with(&extract_dir, "bin")?;
     let _ = tokio::fs::remove_dir_all(&home).await;
     if tokio::fs::rename(&inner, &home).await.is_err() {
-        copy_dir(&inner, &home)
-            .await
-            .map_err(|e| format!("перенос JRE: {e}"))?;
+        copy_dir(&inner, &home).map_err(|e| format!("перенос JRE: {e}"))?;
     }
     let _ = tokio::fs::remove_dir_all(&extract_dir).await;
     let _ = tokio::fs::remove_file(&archive).await;
@@ -148,15 +146,16 @@ fn unpack_targz(archive: &Path, dest: &Path) -> Result<(), String> {
     tar.unpack(dest).map_err(|e| format!("распаковка: {e}"))
 }
 
-async fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
-    tokio::fs::create_dir_all(to).await?;
-    let mut rd = tokio::fs::read_dir(from).await?;
-    while let Some(e) = rd.next_entry().await? {
+// Рекурсивное копирование: обычный fs, чтобы не боксировать async-рекурсию
+fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(to)?;
+    for entry in std::fs::read_dir(from)? {
+        let e = entry?;
         let dst = to.join(e.file_name());
         if e.path().is_dir() {
-            copy_dir(&e.path(), &dst).await?;
+            copy_dir(&e.path(), &dst)?;
         } else {
-            tokio::fs::copy(e.path(), &dst).await?;
+            std::fs::copy(e.path(), &dst)?;
         }
     }
     Ok(())

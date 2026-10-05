@@ -1,5 +1,5 @@
-mod http;
-mod paths;
+pub mod http;
+pub mod paths;
 
 use serde::Serialize;
 
