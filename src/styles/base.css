@@ -1,5 +1,26 @@
 :root {
   color-scheme: dark;
+
+  /* Тема pixel-retroui */
+  --bg-button: #2b3fbd;
+  --text-button: #ffffff;
+  --border-button: #10131a;
+  --shadow-button: #10131a;
+  --bg-card: #1b1e24;
+  --text-card: #e6e8eb;
+  --border-card: #343b46;
+  --shadow-card: #10131a;
+  --bg-input: #14161a;
+  --text-input: #e6e8eb;
+  --border-input: #3a4048;
+  --bg-dropdown: #1b1e24;
+  --text-dropdown: #e6e8eb;
+  --border-dropdown: #3a4048;
+  --shadow-dropdown: #10131a;
+  --bg-dropdown-hover: #22262e;
+  --color-progressbar: #2b3fbd;
+  --border-progressbar: #3a4048;
+
   font-family: system-ui, sans-serif;
   font-size: 14px;
 }
@@ -33,10 +54,10 @@ body {
 }
 
 .logo {
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
+  font-family: 'Minecraft', system-ui;
+  font-size: 22px;
   padding: 4px 10px 16px;
+  color: #e6e8eb;
 }
 
 .nav {
@@ -67,15 +88,70 @@ body {
 
 .screen {
   padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 760px;
 }
 
-.screen h1 {
-  font-size: 22px;
-  margin-bottom: 10px;
+.retro-title {
+  font-family: 'Minecraft', system-ui;
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.play-card {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.play-row {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.play-row .nick {
+  flex: 1;
+  min-width: 160px;
+}
+
+.version-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.version-item {
+  cursor: pointer;
+  width: 100%;
+  font: inherit;
+  color: inherit;
 }
 
 .muted {
   color: #7d838d;
+}
+
+.error {
+  color: #e5636f;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.log {
+  background: #101216;
+  border: 1px solid #262a31;
+  border-radius: 8px;
+  padding: 12px;
+  font: 12px/1.5 ui-monospace, monospace;
+  color: #9aa1ab;
+  max-height: 260px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 button {
