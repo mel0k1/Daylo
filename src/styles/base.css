@@ -1,0 +1,83 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+body {
+  background: #14161a;
+  color: #e6e8eb;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#root,
+.app {
+  display: flex;
+  height: 100%;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 200px;
+  padding: 16px 10px;
+  background: #1b1e24;
+  border-right: 1px solid #262a31;
+}
+
+.logo {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 4px 10px 16px;
+}
+
+.nav {
+  text-align: left;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #b7bcc4;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.nav:hover {
+  background: #22262e;
+  color: #e6e8eb;
+}
+
+.nav.on {
+  background: #2b3fbd;
+  color: #fff;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.screen {
+  padding: 28px 32px;
+}
+
+.screen h1 {
+  font-size: 22px;
+  margin-bottom: 10px;
+}
+
+.muted {
+  color: #7d838d;
+}
+
+button {
+  font: inherit;
+}
