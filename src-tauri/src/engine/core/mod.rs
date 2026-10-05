@@ -1,3 +1,4 @@
+mod http;
 mod paths;
 
 use serde::Serialize;
@@ -15,4 +16,5 @@ pub fn app_info() -> AppInfo {
     }
 }
 
-pub use paths::{data_dir, game_root};
+pub use http::{client, download, json, sha1_of, text};
+pub use paths::{data_dir, game_root, instance_dir, java_dir, version_dir};
