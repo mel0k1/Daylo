@@ -39,11 +39,20 @@ pub fn version_dir(version: &str) -> PathBuf {
 
 // Отсекает обход путей и мусор в именах версий
 fn safe_name(name: &str) -> String {
-    let clean: String = name
-        .chars()
-        .filter(|c| c.is_alphanumeric() || matches!(c, '.' | '-' | '_' | ' ' | '+'))
-        .collect();
-    let trimmed = clean.trim();
+    let mut out = String::new();
+    let mut dot = false;
+    for c in name.chars() {
+        if c == '.' {
+            if !dot {
+                out.push('.');
+                dot = true;
+            }
+        } else if c.is_alphanumeric() || matches!(c, '-' | '_' | ' ' | '+') {
+            out.push(c);
+            dot = false;
+        }
+    }
+    let trimmed = out.trim_matches('.').trim();
     if trimmed.is_empty() {
         "unknown".into()
     } else {
@@ -58,7 +67,10 @@ mod tests {
     #[test]
     fn safe_name_cuts_traversal() {
         assert_eq!(safe_name("../../etc"), "etc");
+        assert_eq!(safe_name("..\\windows"), "windows");
+        assert_eq!(safe_name("..."), "unknown");
         assert_eq!(safe_name(""), "unknown");
         assert_eq!(safe_name("1.21.9"), "1.21.9");
+        assert_eq!(safe_name("21w44a"), "21w44a");
     }
 }
