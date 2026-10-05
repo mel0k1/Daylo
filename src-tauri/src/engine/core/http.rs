@@ -28,11 +28,6 @@ pub async fn text(url: &str) -> Result<String, String> {
     res.text().await.map_err(|e| format!("ответ {url}: {e}"))
 }
 
-pub async fn json(url: &str) -> Result<serde_json::Value, String> {
-    let body = text(url).await?;
-    serde_json::from_str(&body).map_err(|e| format!("разбор json {url}: {e}"))
-}
-
 fn to_hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }

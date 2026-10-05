@@ -37,7 +37,7 @@ impl Reporter {
     // Не спамим событиями: каждые 25 файлов и на границах этапа
     fn emit(&self, stage: &str, done: u64, total: u64) {
         let n = done as usize;
-        if n != self.last.swap(n, Ordering::Relaxed) && n % 25 != 0 && done < total {
+        if n != self.last.swap(n, Ordering::Relaxed) && !n.is_multiple_of(25) && done < total {
             return;
         }
         let _ = self.app.emit(
@@ -263,7 +263,7 @@ async fn assets(rep: &Reporter, version_id: &str, v: &VersionJson) -> Result<(),
         .await
         .ok()
         .filter(|_| {
-            idx.sha1.as_deref().map_or(true, |want| {
+            idx.sha1.as_deref().is_none_or(|want| {
                 http::sha1_of(&index_file)
                     .map(|got| got.eq_ignore_ascii_case(want))
                     .unwrap_or(false)

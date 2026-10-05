@@ -68,18 +68,10 @@ pub async fn list() -> Result<Vec<VersionEntry>, String> {
 
 pub async fn version_url(id: &str) -> Result<String, String> {
     let raw = http::text(MANIFEST_URL).await?;
-    let v: serde_json::Value = serde_json::from_str(&raw).map_err(|e| format!("манифест: {e}"))?;
-    let list = v
-        .get("versions")
-        .and_then(|x| x.as_array())
-        .ok_or("манифест без версий")?;
-    for item in list {
-        if item.get("id").and_then(|x| x.as_str()) == Some(id) {
-            return item
-                .get("url")
-                .and_then(|x| x.as_str())
-                .map(String::from)
-                .ok_or_else(|| format!("версия {id} без url"));
+    let parsed: Manifest = serde_json::from_str(&raw).map_err(|e| format!("манифест: {e}"))?;
+    for v in parsed.versions {
+        if v.id == id {
+            return Ok(v.url);
         }
     }
     Err(format!("версия {id} не найдена в манифесте"))
@@ -89,7 +81,6 @@ pub async fn version_url(id: &str) -> Result<String, String> {
 
 #[derive(Deserialize, Clone)]
 pub struct VersionJson {
-    pub id: String,
     #[serde(rename = "mainClass")]
     pub main_class: String,
     #[serde(default)]
@@ -230,8 +221,8 @@ pub fn rules_allow(rules: &[Rule], features: &[&str]) -> bool {
     for r in rules {
         let os_ok = match &r.os {
             Some(o) => {
-                o.name.as_deref().map_or(true, |n| n == current_os())
-                    && o.arch.as_deref().map_or(true, |a| a == current_arch())
+                o.name.as_deref().is_none_or(|n| n == current_os())
+                    && o.arch.as_deref().is_none_or(|a| a == current_arch())
             }
             None => true,
         };
