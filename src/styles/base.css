@@ -580,3 +580,69 @@ button {
 .mirrors-note {
   font-size: 12px;
 }
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 16, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.crash-modal {
+  width: min(620px, calc(100vw - 48px));
+  max-height: 82vh;
+  overflow-y: auto;
+  background: #1b1e24;
+  border: 1px solid #3a4048;
+  border-radius: 10px;
+  box-shadow: 6px 6px 0 #10131a;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.crash-cause {
+  font-size: 16px;
+  color: #f0b64b;
+  font-weight: 600;
+}
+
+.crash-reason {
+  color: #b7bcc4;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.crash-advice {
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #e6e8eb;
+}
+
+.crash-details summary {
+  cursor: pointer;
+  color: #7d838d;
+  font-size: 13px;
+  user-select: none;
+}
+
+.crash-log {
+  margin-top: 8px;
+  background: #101216;
+  border: 1px solid #262a31;
+  border-radius: 8px;
+  padding: 10px;
+  font: 11px/1.5 ui-monospace, monospace;
+  color: #9aa1ab;
+  max-height: 240px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

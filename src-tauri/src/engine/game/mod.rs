@@ -1,4 +1,5 @@
 pub mod config;
+pub mod crash;
 pub mod install;
 pub mod java;
 pub mod launch;

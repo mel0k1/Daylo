@@ -21,6 +21,15 @@ export interface GameLog {
 export interface GameExit {
   version: string
   code: number | null
+  crash: CrashInfo | null
+}
+
+export interface CrashInfo {
+  title: string
+  reason: string
+  advice: string[]
+  excerpt: string[]
+  exit_code: number | null
 }
 
 export const onInstallProgress = (fn: (p: InstallProgress) => void): Promise<UnlistenFn> =>

@@ -11,6 +11,7 @@ use tokio::sync::Mutex;
 use super::super::core::ely;
 use super::super::core::paths;
 use super::config;
+use super::crash;
 use super::install;
 use super::java;
 use super::mcmeta::{self, Arg, ArgValue, VersionJson};
@@ -31,6 +32,7 @@ pub struct GameLog {
 pub struct GameExit {
     pub version: String,
     pub code: Option<i32>,
+    pub crash: Option<crash::CrashInfo>,
 }
 
 type Running = HashMap<String, Arc<Mutex<tokio::process::Child>>>;
@@ -297,11 +299,18 @@ pub async fn launch(app: tauri::AppHandle, version_id: &str, nick: &str) -> Resu
                 .lock()
                 .ok()
                 .and_then(|mut r| r.remove(&exit_version));
+            // Причину ищем по логу, когда игра вышла нештатно
+            let crash = if code != Some(0) {
+                crash::analyze(&exit_version, code).await
+            } else {
+                None
+            };
             let _ = app_exit.emit(
                 "game-exit",
                 GameExit {
                     version: exit_version,
                     code,
+                    crash,
                 },
             );
             break;

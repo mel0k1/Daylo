@@ -12,6 +12,7 @@ import {
   type LaunchProgress,
   type GameLog,
   type GameExit,
+  type CrashInfo,
 } from '../ipc/events'
 
 interface GameState {
@@ -24,6 +25,8 @@ interface GameState {
   playing: boolean
   logs: string[]
   error: string
+  crash: CrashInfo | null
+  dropCrash: () => void
   init: () => Promise<void>
   refresh: () => Promise<void>
   setVersion: (version: string) => void
@@ -44,6 +47,9 @@ export const useGame = create<GameState>((set, get) => ({
   playing: false,
   logs: [],
   error: '',
+  crash: null,
+
+  dropCrash: () => set({ crash: null }),
 
   init: async () => {
     if (!hasTauri() || wired) return
@@ -68,7 +74,7 @@ export const useGame = create<GameState>((set, get) => ({
       void get().refresh().then(() => set({ version: p.id }))
     })
     onGameExit((e: GameExit) => {
-      set({ playing: false, stage: '', progress: 0 })
+      set({ playing: false, stage: '', progress: 0, crash: e.crash })
       const tail = e.code === 0 ? 'Игра завершилась' : `Игра завершилась с кодом ${e.code ?? '?'}`
       set((s) => ({ logs: [...s.logs.slice(-300), tail] }))
     })
