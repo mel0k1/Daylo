@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from 'pixel-retroui'
-import { shotsDelete, shotsList, shotsOpen, shotsRead, type Shot } from '../ipc/commands'
+import { listVersions, shotsDelete, shotsList, shotsOpen, shotsRead, type Shot } from '../ipc/commands'
 import { hasTauri } from '../ipc/tauri'
 
 const MAX_SHOWN = 80
