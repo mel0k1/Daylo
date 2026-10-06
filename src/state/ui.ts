@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type ScreenId = 'play' | 'mods' | 'settings'
+export type ScreenId = 'play' | 'mods' | 'shots' | 'settings'
 
 interface UiState {
   screen: ScreenId

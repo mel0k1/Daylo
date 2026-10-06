@@ -3,14 +3,16 @@ import { useUi } from './state/ui'
 import { useAccount } from './state/account'
 import { Play } from './screens/Play'
 import { Mods } from './screens/Mods'
+import { Shots } from './screens/Shots'
 import { Settings } from './screens/Settings'
 import { hasTauri } from './ipc/tauri'
 import { updateInstall, updateCheck, type UpdateInfo } from './ipc/commands'
 import { onUpdateProgress, type UpdateProgress } from './ipc/events'
 
-const navItems: { id: 'play' | 'mods' | 'settings'; label: string }[] = [
+const navItems: { id: 'play' | 'mods' | 'shots' | 'settings'; label: string }[] = [
   { id: 'play', label: 'Играть' },
   { id: 'mods', label: 'Моды' },
+  { id: 'shots', label: 'Скриншоты' },
   { id: 'settings', label: 'Настройки' },
 ]
 
@@ -80,6 +82,7 @@ export default function App() {
       <main className="content">
         {screen === 'play' && <Play />}
         {screen === 'mods' && <Mods />}
+        {screen === 'shots' && <Shots />}
         {screen === 'settings' && <Settings />}
       </main>
     </div>

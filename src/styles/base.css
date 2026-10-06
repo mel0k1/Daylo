@@ -726,3 +726,89 @@ button {
   font-size: 11px;
   padding: 0 4px;
 }
+
+.shots-screen {
+  max-width: 960px;
+}
+
+.shots-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.shots-head .retro-title {
+  margin-right: auto;
+}
+
+.shots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.shot-card {
+  border: 1px solid #262a31;
+  border-radius: 8px;
+  background: #14161a;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.shot-card:hover {
+  border-color: #2b3fbd;
+}
+
+.shot-img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.shot-img.empty {
+  background: #22262e;
+}
+
+.shot-name {
+  font-size: 11px;
+  color: #7d838d;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shot-view {
+  max-width: min(1100px, calc(100vw - 48px));
+  background: #1b1e24;
+  border: 1px solid #3a4048;
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.shot-view-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shot-view-head .shot-name {
+  font-size: 13px;
+  flex: 1;
+}
+
+.shot-full {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: 6px;
+}

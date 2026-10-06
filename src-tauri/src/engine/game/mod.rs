@@ -10,4 +10,5 @@ pub mod modrinth;
 pub mod pack;
 pub mod ping;
 pub mod servers;
+pub mod shots;
 pub mod skin;

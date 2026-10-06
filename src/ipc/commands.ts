@@ -185,3 +185,19 @@ export const packExport = (version: string) =>
   invoke<string | null>('pack_export', { version })
 
 export const packImport = () => invoke<string | null>('pack_import')
+
+export interface Shot {
+  name: string
+  modified: number
+  size: number
+}
+
+export const shotsList = (version: string) => invoke<Shot[]>('shots_list', { version })
+
+export const shotsRead = (version: string, name: string) =>
+  invoke<string>('shots_read', { version, name })
+
+export const shotsDelete = (version: string, name: string) =>
+  invoke<void>('shots_delete', { version, name })
+
+export const shotsOpen = (version: string) => invoke<void>('shots_open', { version })
