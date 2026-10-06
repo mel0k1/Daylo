@@ -211,7 +211,6 @@ async fn install_installer(
     // Сумма берётся с maven; для инсталлера это обязательная проверка
     let sha1 = match http::text(&format!("{url}.sha1")).await {
         Ok(s) => s
-            .trim()
             .split_whitespace()
             .next()
             .filter(|s| s.len() == 40)
