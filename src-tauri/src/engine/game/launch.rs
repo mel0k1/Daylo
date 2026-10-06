@@ -114,6 +114,13 @@ pub async fn launch(app: tauri::AppHandle, version_id: &str, nick: &str) -> Resu
         .await
         .map_err(|e| format!("папка сборки: {e}"))?;
 
+    // Скин через CustomSkinLoader — только у профилей с загрузчиком; сбой не мешает запуску
+    if let Some(base) = &v.inherits_from {
+        if let Err(e) = super::skin::apply_to_instance(version_id, base, nick).await {
+            eprintln!("скин не применён: {e}");
+        }
+    }
+
     let sep = if cfg!(target_os = "windows") {
         ";"
     } else {
