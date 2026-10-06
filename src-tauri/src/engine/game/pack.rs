@@ -105,8 +105,8 @@ async fn create_from(app: &tauri::AppHandle, path: &Path) -> Result<String, Stri
     let body = tokio::fs::read_to_string(path)
         .await
         .map_err(|e| format!("чтение файла: {e}"))?;
-    let pack: Pack = serde_json::from_str(&body)
-        .map_err(|_| "файл не похож на сборку Daylo".to_string())?;
+    let pack: Pack =
+        serde_json::from_str(&body).map_err(|_| "файл не похож на сборку Daylo".to_string())?;
     if pack.format != FORMAT {
         return Err(format!("формат сборки {} не поддерживается", pack.format));
     }
@@ -224,7 +224,10 @@ mod tests {
         let name = "my-pack";
         assert_eq!(unique_id_inner(name, &[]), "my-pack");
         assert_eq!(unique_id_inner(name, &["my-pack"]), "my-pack-2");
-        assert_eq!(unique_id_inner(name, &["my-pack", "my-pack-2"]), "my-pack-3");
+        assert_eq!(
+            unique_id_inner(name, &["my-pack", "my-pack-2"]),
+            "my-pack-3"
+        );
         assert_eq!(unique_id_inner("", &[]), "imported");
     }
 
