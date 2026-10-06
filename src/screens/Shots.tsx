@@ -82,7 +82,7 @@ export function Shots() {
     }
     void shotsRead(version, open)
       .then(setZoom)
-      .catch((e) => setError(String(e)))
+      .catch((e: unknown) => setError(String(e)))
   }, [open, version])
 
   const remove = async (name: string) => {
