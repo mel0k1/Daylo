@@ -114,7 +114,54 @@ pub async fn version_json(version_id: &str) -> Result<VersionJson, String> {
             b
         }
     };
-    serde_json::from_str(&body).map_err(|e| format!("разбор version json: {e}"))
+    let v: VersionJson =
+        serde_json::from_str(&body).map_err(|e| format!("разбор version json: {e}"))?;
+    resolve_inherits(v).await
+}
+
+// Профиль загрузчика наследует клиент, ассеты и java родительской версии
+fn resolve_inherits(
+    mut child: VersionJson,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<VersionJson, String>> + Send>> {
+    Box::pin(async move {
+        let Some(pid) = child.inherits_from.clone() else {
+            return Ok(child);
+        };
+        let parent = version_json(&pid).await?;
+        // Библиотеки ребёнка первыми — их классы должны перекрывать родительские
+        let mut libs = child.libraries.clone();
+        libs.extend(parent.libraries.iter().cloned());
+        child.libraries = libs;
+        if child.downloads.client.is_none() {
+            child.downloads = parent.downloads.clone();
+        }
+        if child.asset_index.is_none() {
+            child.asset_index = parent.asset_index.clone();
+        }
+        if child.java_version.is_none() {
+            child.java_version = parent.java_version.clone();
+        }
+        if child.legacy_args.is_none() {
+            child.legacy_args = parent.legacy_args.clone();
+        }
+        if let Some(pargs) = parent.arguments {
+            match &mut child.arguments {
+                Some(a) => {
+                    a.jvm.extend(pargs.jvm.iter().cloned());
+                    a.game.extend(pargs.game.iter().cloned());
+                }
+                None => child.arguments = Some(pargs),
+            }
+        }
+        Ok(child)
+    })
+}
+
+// Клиентский jar лежит у родителя: сам профиль загрузчика без него
+fn jar_id(v: &VersionJson, version_id: &str) -> String {
+    v.inherits_from
+        .clone()
+        .unwrap_or_else(|| version_id.to_string())
 }
 
 async fn client_jar(version_id: &str, v: &VersionJson) -> Result<(), String> {
@@ -123,7 +170,8 @@ async fn client_jar(version_id: &str, v: &VersionJson) -> Result<(), String> {
         .client
         .as_ref()
         .ok_or("в version json нет клиента")?;
-    let to = paths::version_dir(version_id).join(format!("{version_id}.jar"));
+    let id = jar_id(v, version_id);
+    let to = paths::version_dir(&id).join(format!("{id}.jar"));
     http::download(&c.url, &to, c.sha1.as_deref(), None, c.size).await
 }
 
@@ -134,6 +182,21 @@ fn allowed_libraries(v: &VersionJson) -> Vec<&Library> {
         .collect()
 }
 
+// Артефакт библиотеки: у Mojang в downloads, у профилей загрузчиков — координаты + база maven
+fn lib_artifact(lib: &Library) -> Option<Artifact> {
+    if let Some(a) = lib.downloads.as_ref().and_then(|d| d.artifact.as_ref()) {
+        return Some(a.clone());
+    }
+    let base = lib.url.as_deref()?;
+    let path = mcmeta::maven_path(&lib.name);
+    Some(Artifact {
+        path: Some(path.clone()),
+        url: format!("{}/{path}", base.trim_end_matches('/')),
+        sha1: lib.sha1.clone(),
+        size: None,
+    })
+}
+
 async fn libraries(rep: &Reporter, v: &VersionJson) -> Result<(), String> {
     let libs = allowed_libraries(v);
     let total = libs.len() as u64;
@@ -141,13 +204,7 @@ async fn libraries(rep: &Reporter, v: &VersionJson) -> Result<(), String> {
 
     let tasks: Vec<_> = libs
         .iter()
-        .filter_map(|lib| {
-            lib.downloads
-                .as_ref()?
-                .artifact
-                .as_ref()
-                .map(|art| (lib, art))
-        })
+        .filter_map(|lib| lib_artifact(lib).map(|art| (lib, art)))
         .map(|(lib, art)| {
             let path = art
                 .path
@@ -364,7 +421,7 @@ async fn assets(rep: &Reporter, version_id: &str, v: &VersionJson) -> Result<(),
 pub fn classpath(v: &VersionJson, version_id: &str) -> Vec<PathBuf> {
     let mut cp: Vec<PathBuf> = Vec::new();
     for lib in allowed_libraries(v) {
-        if let Some(art) = lib.downloads.as_ref().and_then(|d| d.artifact.as_ref()) {
+        if let Some(art) = lib_artifact(lib) {
             let path = art
                 .path
                 .clone()
@@ -372,7 +429,8 @@ pub fn classpath(v: &VersionJson, version_id: &str) -> Vec<PathBuf> {
             cp.push(paths::libraries_dir().join(path));
         }
     }
-    cp.push(paths::version_dir(version_id).join(format!("{version_id}.jar")));
+    let id = jar_id(v, version_id);
+    cp.push(paths::version_dir(&id).join(format!("{id}.jar")));
     cp
 }
 

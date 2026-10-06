@@ -10,8 +10,13 @@ pub struct VersionEntry {
     pub id: String,
     #[serde(rename = "type")]
     pub kind: String,
-    #[serde(rename = "releaseTime")]
+    #[serde(rename = "releaseTime", default)]
     pub release_time: String,
+    // Профили загрузчиков, которых нет в манифесте Mojang
+    #[serde(default)]
+    pub loader: String,
+    #[serde(default)]
+    pub base: String,
 }
 
 #[derive(Deserialize)]
@@ -43,6 +48,8 @@ pub async fn list() -> Result<Vec<VersionEntry>, String> {
                 id: v.id,
                 kind: v.kind,
                 release_time: v.release_time,
+                loader: String::new(),
+                base: String::new(),
             })
             .collect();
         Ok::<Vec<VersionEntry>, String>(list)
@@ -83,6 +90,9 @@ pub async fn version_url(id: &str) -> Result<String, String> {
 pub struct VersionJson {
     #[serde(rename = "mainClass")]
     pub main_class: String,
+    // Профили загрузчиков наследуют клиент и ассеты родительской версии
+    #[serde(rename = "inheritsFrom", default)]
+    pub inherits_from: Option<String>,
     #[serde(default)]
     pub arguments: Option<Arguments>,
     #[serde(rename = "minecraftArguments", default)]
@@ -145,6 +155,11 @@ pub struct Library {
     pub rules: Vec<Rule>,
     #[serde(default)]
     pub downloads: Option<LibDownloads>,
+    // У профилей загрузчиков вместо downloads — база maven и хеш на верхнем уровне
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub sha1: Option<String>,
     #[serde(default)]
     pub natives: Option<std::collections::BTreeMap<String, String>>,
     #[serde(default)]
