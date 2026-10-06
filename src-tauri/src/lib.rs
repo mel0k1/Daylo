@@ -10,6 +10,8 @@ pub fn run() {
             commands::launch::install_version,
             commands::launch::launch_game,
             commands::launch::stop_game,
+            commands::launch::loader_builds,
+            commands::launch::install_loader,
             commands::config::get_instance_config,
             commands::config::save_instance_config,
             commands::mods::modrinth_search,
@@ -17,6 +19,9 @@ pub fn run() {
             commands::mods::modrinth_install,
             commands::mods::mods_list,
             commands::mods::mods_delete,
+            commands::skin::skin_save,
+            commands::skin::skin_load,
+            commands::skin::skin_delete,
         ])
         .run(tauri::generate_context!())
         .expect("не удалось запустить Daylo");

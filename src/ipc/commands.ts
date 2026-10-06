@@ -9,6 +9,15 @@ export interface VersionEntry {
   id: string
   type: string
   release_time: string
+  // Профили загрузчиков: тег и базовая версия игры
+  loader: string
+  base: string
+}
+
+export interface LoaderBuild {
+  version: string
+  stable: boolean
+  recommended: boolean
 }
 
 export const appInfo = () => invoke<AppInfo>('app_info')
@@ -65,3 +74,16 @@ export const getInstanceConfig = (version: string) =>
 
 export const saveInstanceConfig = (version: string, ramMb: number, jvmArgs: string[]) =>
   invoke<void>('save_instance_config', { version, ramMb, jvmArgs })
+
+export const loaderBuilds = (loader: string, version: string) =>
+  invoke<LoaderBuild[]>('loader_builds', { loader, version })
+
+export const installLoader = (loader: string, version: string, build: string) =>
+  invoke<void>('install_loader', { loader, version, build })
+
+export const skinSave = (nick: string, pngBase64: string) =>
+  invoke<void>('skin_save', { nick, pngBase64 })
+
+export const skinLoad = (nick: string) => invoke<string | null>('skin_load', { nick })
+
+export const skinDelete = (nick: string) => invoke<void>('skin_delete', { nick })

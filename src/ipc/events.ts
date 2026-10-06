@@ -34,3 +34,11 @@ export const onGameLog = (fn: (l: GameLog) => void): Promise<UnlistenFn> =>
 
 export const onGameExit = (fn: (e: GameExit) => void): Promise<UnlistenFn> =>
   listen<GameExit>('game-exit', (e) => fn(e.payload))
+
+export interface LoaderInstalled {
+  id: string
+  base: string
+}
+
+export const onLoaderInstalled = (fn: (p: LoaderInstalled) => void): Promise<UnlistenFn> =>
+  listen<LoaderInstalled>('loader-installed', (e) => fn(e.payload))

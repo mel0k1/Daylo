@@ -289,3 +289,123 @@ button {
 .field .flags:focus {
   outline: 1px solid #2b3fbd;
 }
+
+.play-layout {
+  display: flex;
+  gap: 18px;
+  padding: 28px 32px;
+  align-items: flex-start;
+}
+
+.play-layout .play-screen {
+  padding: 0;
+  max-width: none;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tab {
+  padding: 7px 14px;
+  border: 1px solid #3a4048;
+  border-radius: 8px;
+  background: #14161a;
+  color: #b7bcc4;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+
+.tab:hover {
+  background: #22262e;
+  color: #e6e8eb;
+}
+
+.tab.on {
+  background: #2b3fbd;
+  border-color: #2b3fbd;
+  color: #fff;
+}
+
+.loader-hint {
+  align-self: center;
+  margin-right: auto;
+}
+
+.skin-card {
+  width: 200px;
+  flex-shrink: 0;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.skin-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 200px;
+  justify-content: center;
+}
+
+.skin-view canvas {
+  image-rendering: pixelated;
+}
+
+.skin-view canvas.dim {
+  opacity: 0.25;
+}
+
+.skin-hint {
+  font-size: 12px;
+}
+
+.skin-buttons {
+  position: relative;
+  overflow: hidden;
+  display: inline-block;
+  width: 100%;
+  text-align: center;
+}
+
+.skin-file {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.skin-buttons > span {
+  display: block;
+  padding: 8px 10px;
+  border: 1px solid #3a4048;
+  border-radius: 6px;
+  background: #14161a;
+  color: #e6e8eb;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.skin-buttons:hover > span {
+  background: #22262e;
+}
+
+.skin-buttons {
+  width: 100%;
+}
+
+.skin-note {
+  font-size: 11px;
+  text-align: center;
+}

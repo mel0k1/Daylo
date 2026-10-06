@@ -6,6 +6,7 @@ import {
   onLaunchProgress,
   onGameLog,
   onGameExit,
+  onLoaderInstalled,
   type InstallProgress,
   type LaunchProgress,
   type GameLog,
@@ -23,6 +24,7 @@ interface GameState {
   logs: string[]
   error: string
   init: () => Promise<void>
+  refresh: () => Promise<void>
   setVersion: (version: string) => void
   setNick: (nick: string) => void
   play: () => Promise<void>
@@ -61,6 +63,9 @@ export const useGame = create<GameState>((set, get) => ({
     onGameLog((l: GameLog) =>
       set((s) => ({ logs: [...s.logs.slice(-300), l.line] })),
     )
+    onLoaderInstalled((p) => {
+      void get().refresh().then(() => set({ version: p.id }))
+    })
     onGameExit((e: GameExit) => {
       set({ playing: false, stage: '', progress: 0 })
       const tail = e.code === 0 ? 'Игра завершилась' : `Игра завершилась с кодом ${e.code ?? '?'}`
@@ -75,6 +80,16 @@ export const useGame = create<GameState>((set, get) => ({
         versions,
         version: stored && versions.some((v) => v.id === stored) ? stored : fallback,
       })
+    } catch (e) {
+      set({ error: String(e) })
+    }
+  },
+
+  refresh: async () => {
+    if (!hasTauri()) return
+    try {
+      const versions = await listVersions()
+      set({ versions })
     } catch (e) {
       set({ error: String(e) })
     }
