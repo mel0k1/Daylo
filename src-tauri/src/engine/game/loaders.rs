@@ -207,7 +207,7 @@ async fn install_installer(
     let cache = paths::data_dir().join("cache").join("loaders");
     let jar = cache.join(format!("{loader}-{build}-installer.jar"));
 
-    let _ = emit_stage(&app, mc, "загрузчик: скачивание инсталлера");
+    emit_stage(&app, mc, "загрузчик: скачивание инсталлера");
     // Сумма берётся с maven; для инсталлера это обязательная проверка
     let sha1 = match http::text(&format!("{url}.sha1")).await {
         Ok(s) => s
@@ -220,7 +220,7 @@ async fn install_installer(
     };
     http::download(&url, &jar, sha1.as_deref(), None, None).await?;
 
-    let _ = emit_stage(&app, mc, "загрузчик: java");
+    emit_stage(&app, mc, "загрузчик: java");
     let _ = install::version_json(mc).await?;
     let java_bin = java::ensure_java(java_major_for(mc)).await?;
 
@@ -230,7 +230,7 @@ async fn install_installer(
         .map_err(|e| format!("папка игры: {e}"))?;
     let before = profile_snapshot();
 
-    let _ = emit_stage(&app, mc, "загрузчик: работа инсталлера");
+    emit_stage(&app, mc, "загрузчик: работа инсталлера");
     let mut cmd = tokio::process::Command::new(&java_bin);
     cmd.arg("-jar")
         .arg(&jar)
