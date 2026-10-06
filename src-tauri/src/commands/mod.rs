@@ -1,5 +1,8 @@
+pub mod account;
 pub mod config;
 pub mod launch;
 pub mod mods;
+pub mod servers;
+pub mod settings;
 pub mod skin;
 pub mod system;

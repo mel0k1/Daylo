@@ -8,6 +8,7 @@ use tauri::Emitter;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 
+use super::super::core::ely;
 use super::super::core::paths;
 use super::config;
 use super::install;
@@ -82,6 +83,22 @@ fn expand_args(args: &[Arg], map: &HashMap<&str, String>) -> Vec<String> {
 
 // Стартует игру: ставит недостающее, подбирает Java, запускает JVM
 pub async fn launch(app: tauri::AppHandle, version_id: &str, nick: &str) -> Result<(), String> {
+    // Ely.by: живой токен и профиль важнее локального ника; сбой сети — играем оффлайн
+    let acc = ely::current_account().await;
+    let (player, uuid, token, user_type) = match &acc {
+        Some(a) => (
+            a.name.clone(),
+            a.uuid.clone(),
+            a.access_token.clone(),
+            "mojang",
+        ),
+        None => (
+            nick.trim().to_string(),
+            offline_uuid(nick.trim()),
+            "0".to_string(),
+            "legacy",
+        ),
+    };
     let _ = app.emit(
         "launch-progress",
         LaunchProgress {
@@ -116,7 +133,7 @@ pub async fn launch(app: tauri::AppHandle, version_id: &str, nick: &str) -> Resu
 
     // Скин через CustomSkinLoader — только у профилей с загрузчиком; сбой не мешает запуску
     if let Some(base) = &v.inherits_from {
-        if let Err(e) = super::skin::apply_to_instance(version_id, base, nick).await {
+        if let Err(e) = super::skin::apply_to_instance(version_id, base, &player).await {
             eprintln!("скин не применён: {e}");
         }
     }
@@ -135,19 +152,18 @@ pub async fn launch(app: tauri::AppHandle, version_id: &str, nick: &str) -> Resu
 
     let assets_root = paths::assets_dir();
     let natives = install::natives_dir(version_id, &v);
-    let uuid = offline_uuid(nick);
 
     let mut map: HashMap<&str, String> = HashMap::new();
-    map.insert("auth_player_name", nick.into());
+    map.insert("auth_player_name", player);
     map.insert("version_name", version_id.into());
     map.insert("game_directory", game_dir.to_string_lossy().to_string());
     map.insert("assets_root", assets_root.to_string_lossy().to_string());
     map.insert("assets_index_name", asset_index_name(&v, version_id));
     map.insert("auth_uuid", uuid);
-    map.insert("auth_access_token", "0".into());
+    map.insert("auth_access_token", token);
     map.insert("auth_xuid", "0".into());
     map.insert("clientid", "daylo".into());
-    map.insert("user_type", "legacy".into());
+    map.insert("user_type", user_type.into());
     map.insert("version_type", v.kind.clone());
     map.insert("natives_directory", natives.to_string_lossy().to_string());
     map.insert("launcher_name", "Daylo".into());
@@ -167,6 +183,17 @@ pub async fn launch(app: tauri::AppHandle, version_id: &str, nick: &str) -> Resu
         "-Dlog4j2.formatMsgNoLookups=true".into(),
         format!("-Xmx{}M", cfg.ram_mb),
     ];
+    // Скин и авторизация Ely.by: агент переключает authlib игры на sessionserver ely.by
+    if acc.is_some() {
+        match ely::ensure_authlib().await {
+            Ok(jar) => jvm.push(format!(
+                "-javaagent:{}={}",
+                jar.display(),
+                ely::AUTHLIB_ROOT
+            )),
+            Err(e) => eprintln!("authlib-injector не готов: {e}"),
+        }
+    }
     match &v.arguments {
         Some(a) => {
             let ruled: Vec<Arg> = a
