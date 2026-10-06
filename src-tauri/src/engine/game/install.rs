@@ -104,7 +104,7 @@ pub async fn version_json(version_id: &str) -> Result<VersionJson, String> {
         Ok(b) => b,
         Err(_) => {
             let url = mcmeta::version_url(version_id).await?;
-            let b = http::text(&url).await?;
+            let b = http::text_mirrored(&url).await?;
             tokio::fs::create_dir_all(&dir)
                 .await
                 .map_err(|e| format!("папка версии: {e}"))?;
@@ -172,7 +172,7 @@ async fn client_jar(version_id: &str, v: &VersionJson) -> Result<(), String> {
         .ok_or("в version json нет клиента")?;
     let id = jar_id(v, version_id);
     let to = paths::version_dir(&id).join(format!("{id}.jar"));
-    http::download(&c.url, &to, c.sha1.as_deref(), None, c.size).await
+    http::download_mirrored(&c.url, &to, c.sha1.as_deref(), None, c.size).await
 }
 
 fn allowed_libraries(v: &VersionJson) -> Vec<&Library> {
@@ -214,7 +214,7 @@ async fn libraries(rep: &Reporter, v: &VersionJson) -> Result<(), String> {
             let url = art.url.clone();
             let sha1 = art.sha1.clone();
             let size = art.size;
-            async move { http::download(&url, &to, sha1.as_deref(), None, size).await }
+            async move { http::download_mirrored(&url, &to, sha1.as_deref(), None, size).await }
         })
         .collect();
 
@@ -263,7 +263,7 @@ async fn natives(version_id: &str, v: &VersionJson) -> Result<(), String> {
             .clone()
             .unwrap_or_else(|| mcmeta::maven_path(&format!("{}:{}", lib.name, classifier)));
         let jar = paths::libraries_dir().join(&path);
-        http::download(&art.url, &jar, art.sha1.as_deref(), None, art.size).await?;
+        http::download_mirrored(&art.url, &jar, art.sha1.as_deref(), None, art.size).await?;
         let exclude = lib
             .extract
             .as_ref()
@@ -329,7 +329,7 @@ async fn assets(rep: &Reporter, version_id: &str, v: &VersionJson) -> Result<(),
     let body = match cached_ok {
         Some(b) => b,
         None => {
-            let b = http::text(&idx.url).await?;
+            let b = http::text_mirrored(&idx.url).await?;
             tokio::fs::create_dir_all(index_file.parent().unwrap())
                 .await
                 .map_err(|e| format!("папка индексов: {e}"))?;
@@ -374,7 +374,7 @@ async fn assets(rep: &Reporter, version_id: &str, v: &VersionJson) -> Result<(),
                 .join(format!("{}/{}", &hash[..2], hash));
             let done = done.clone();
             async move {
-                let r = http::download(&url, &to, Some(&hash), None, None).await;
+                let r = http::download_mirrored(&url, &to, Some(&hash), None, None).await;
                 let n = done.fetch_add(1, Ordering::Relaxed) + 1;
                 (n, r)
             }

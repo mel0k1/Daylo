@@ -31,7 +31,7 @@ pub async fn list_builds(loader: &str, mc: &str) -> Result<Vec<LoaderBuild>, Str
 
 async fn fabric_builds(mc: &str) -> Result<Vec<LoaderBuild>, String> {
     let url = format!("{FABRIC_META}/versions/loader/{mc}");
-    let raw: serde_json::Value = serde_json::from_str(&http::text(&url).await?)
+    let raw: serde_json::Value = serde_json::from_str(&http::text_mirrored(&url).await?)
         .map_err(|e| format!("ответ meta.fabricmc: {e}"))?;
     let arr = raw.as_array().cloned().unwrap_or_default();
     let mut out: Vec<LoaderBuild> = arr
@@ -59,7 +59,7 @@ async fn fabric_builds(mc: &str) -> Result<Vec<LoaderBuild>, String> {
 // Forge перечисляет сборки как "<mc>-<build>", у старых "<build>-<mc>" в хвосте
 async fn forge_builds(mc: &str) -> Result<Vec<LoaderBuild>, String> {
     let url = format!("{FORGE_META}/maven-metadata.json");
-    let raw: serde_json::Value = serde_json::from_str(&http::text(&url).await?)
+    let raw: serde_json::Value = serde_json::from_str(&http::text_mirrored(&url).await?)
         .map_err(|e| format!("ответ forge meta: {e}"))?;
     let mut builds: Vec<String> = raw[mc]
         .as_array()
@@ -72,7 +72,7 @@ async fn forge_builds(mc: &str) -> Result<Vec<LoaderBuild>, String> {
         .collect();
     builds.reverse();
     let promo_url = format!("{FORGE_META}/promotions_slim.json");
-    let promos: serde_json::Value = serde_json::from_str(&http::text(&promo_url).await?)
+    let promos: serde_json::Value = serde_json::from_str(&http::text_mirrored(&promo_url).await?)
         .map_err(|e| format!("ответ forge promos: {e}"))
         .unwrap_or(serde_json::Value::Null);
     let rec = promos["promos"][format!("{mc}-recommended")]
@@ -104,7 +104,7 @@ fn neoforge_is_stable(v: &str) -> bool {
 }
 
 async fn neoforge_builds(mc: &str) -> Result<Vec<LoaderBuild>, String> {
-    let raw: serde_json::Value = serde_json::from_str(&http::text(NEOFORGE_META).await?)
+    let raw: serde_json::Value = serde_json::from_str(&http::text_mirrored(NEOFORGE_META).await?)
         .map_err(|e| format!("ответ meta.neoforged: {e}"))?;
     let list: Vec<String> = raw["versions"]
         .as_array()
@@ -152,7 +152,7 @@ fn num_key(v: &str) -> Vec<u64> {
 // Установка Fabric: profile json с meta, клиент подтягивается через inheritsFrom
 async fn install_fabric(mc: &str, build: &str) -> Result<String, String> {
     let url = format!("{FABRIC_META}/versions/loader/{mc}/{build}/profile/json");
-    let body = http::text(&url).await?;
+    let body = http::text_mirrored(&url).await?;
     let raw: serde_json::Value =
         serde_json::from_str(&body).map_err(|e| format!("ответ meta.fabricmc: {e}"))?;
     let id = raw["id"]
@@ -209,7 +209,7 @@ async fn install_installer(
 
     emit_stage(&app, mc, "загрузчик: скачивание инсталлера");
     // Сумма берётся с maven; для инсталлера это обязательная проверка
-    let sha1 = match http::text(&format!("{url}.sha1")).await {
+    let sha1 = match http::text_mirrored(&format!("{url}.sha1")).await {
         Ok(s) => s
             .split_whitespace()
             .next()
@@ -217,7 +217,7 @@ async fn install_installer(
             .map(String::from),
         Err(_) => None,
     };
-    http::download(&url, &jar, sha1.as_deref(), None, None).await?;
+    http::download_mirrored(&url, &jar, sha1.as_deref(), None, None).await?;
 
     emit_stage(&app, mc, "загрузчик: java");
     let _ = install::version_json(mc).await?;

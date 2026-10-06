@@ -4,6 +4,8 @@ use std::time::Duration;
 
 use sha1::Digest;
 
+use super::mirrors;
+
 // Единственный клиент на всё приложение
 pub fn client() -> &'static reqwest::Client {
     static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
@@ -98,6 +100,47 @@ pub async fn download(
         }
         match download_once(url, to, sha1, sha256, size).await {
             Ok(()) => return Ok(()),
+            Err(e) => last = e,
+        }
+    }
+    Err(last)
+}
+
+// Скачивание по списку адресов-кандидатов: зеркало → оригинал. На каждый
+// адрес две попытки, чтобы один сбой зеркала не ронял загрузку.
+pub async fn download_mirrored(
+    url: &str,
+    to: &Path,
+    sha1: Option<&str>,
+    sha256: Option<&str>,
+    size: Option<u64>,
+) -> Result<(), String> {
+    if to.exists() && file_ok(to, sha1, sha256, size) {
+        return Ok(());
+    }
+    let routes = mirrors::routes(url).await;
+    let mut last = String::new();
+    for route in &routes {
+        for attempt in 0..2 {
+            if attempt > 0 {
+                tokio::time::sleep(Duration::from_secs(attempt)).await;
+            }
+            match download_once(route, to, sha1, sha256, size).await {
+                Ok(()) => return Ok(()),
+                Err(e) => last = e,
+            }
+        }
+    }
+    Err(last)
+}
+
+// Текст по маршрутам «зеркало → оригинал»: первый удачный ответ побеждает
+pub async fn text_mirrored(url: &str) -> Result<String, String> {
+    let routes = mirrors::routes(url).await;
+    let mut last = String::new();
+    for route in &routes {
+        match text(route).await {
+            Ok(t) => return Ok(t),
             Err(e) => last = e,
         }
     }

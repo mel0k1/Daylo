@@ -38,7 +38,7 @@ struct Manifest {
 pub async fn list() -> Result<Vec<VersionEntry>, String> {
     let cache = paths::data_dir().join("mc").join("version_manifest.json");
     let from_net = async {
-        let raw = http::text(MANIFEST_URL).await?;
+        let raw = http::text_mirrored(MANIFEST_URL).await?;
         let parsed: Manifest =
             serde_json::from_str(&raw).map_err(|e| format!("разбор манифеста: {e}"))?;
         let list: Vec<VersionEntry> = parsed
@@ -74,7 +74,7 @@ pub async fn list() -> Result<Vec<VersionEntry>, String> {
 }
 
 pub async fn version_url(id: &str) -> Result<String, String> {
-    let raw = http::text(MANIFEST_URL).await?;
+    let raw = http::text_mirrored(MANIFEST_URL).await?;
     let parsed: Manifest = serde_json::from_str(&raw).map_err(|e| format!("манифест: {e}"))?;
     for v in parsed.versions {
         if v.id == id {

@@ -5,4 +5,5 @@ pub mod launch;
 pub mod loaders;
 pub mod mcmeta;
 pub mod modrinth;
+pub mod ping;
 pub mod skin;
