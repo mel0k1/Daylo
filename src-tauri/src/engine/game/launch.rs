@@ -9,6 +9,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 
 use super::super::core::paths;
+use super::config;
 use super::install;
 use super::java;
 use super::mcmeta::{self, Arg, ArgValue, VersionJson};
@@ -151,9 +152,14 @@ pub async fn launch(app: tauri::AppHandle, version_id: &str, nick: &str) -> Resu
         paths::libraries_dir().to_string_lossy().to_string(),
     );
 
+    let cfg = config::load(version_id).await;
+
     // Правила с os учитываются заранее — expand_args уже отфильтровал их в install
     let features = [""];
-    let mut jvm: Vec<String> = vec!["-Dlog4j2.formatMsgNoLookups=true".into(), "-Xmx2G".into()];
+    let mut jvm: Vec<String> = vec![
+        "-Dlog4j2.formatMsgNoLookups=true".into(),
+        format!("-Xmx{}M", cfg.ram_mb),
+    ];
     match &v.arguments {
         Some(a) => {
             let ruled: Vec<Arg> = a
@@ -174,6 +180,13 @@ pub async fn launch(app: tauri::AppHandle, version_id: &str, nick: &str) -> Resu
             jvm.push(map.get("classpath").unwrap().clone());
         }
     }
+    // Пользовательские флаги идут последними — HotSpot берёт последний -Xmx и т.п.
+    jvm.extend(
+        cfg.jvm_args
+            .iter()
+            .filter(|a| a.trim().starts_with('-'))
+            .cloned(),
+    );
     jvm.push(v.main_class.clone());
 
     let mut game_args: Vec<String> = match (&v.arguments, &v.legacy_args) {

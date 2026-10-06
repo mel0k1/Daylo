@@ -1,6 +1,13 @@
 import { useUi } from './state/ui'
 import { Play } from './screens/Play'
+import { Mods } from './screens/Mods'
 import { Settings } from './screens/Settings'
+
+const navItems: { id: 'play' | 'mods' | 'settings'; label: string }[] = [
+  { id: 'play', label: 'Играть' },
+  { id: 'mods', label: 'Моды' },
+  { id: 'settings', label: 'Настройки' },
+]
 
 export default function App() {
   const screen = useUi((s) => s.screen)
@@ -9,20 +16,21 @@ export default function App() {
     <div className="app">
       <nav className="sidebar">
         <div className="logo">Daylo</div>
-        <button
-          className={screen === 'play' ? 'nav on' : 'nav'}
-          onClick={() => useUi.getState().setScreen('play')}
-        >
-          Играть
-        </button>
-        <button
-          className={screen === 'settings' ? 'nav on' : 'nav'}
-          onClick={() => useUi.getState().setScreen('settings')}
-        >
-          Настройки
-        </button>
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            className={screen === item.id ? 'nav on' : 'nav'}
+            onClick={() => useUi.getState().setScreen(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
       </nav>
-      <main className="content">{screen === 'play' ? <Play /> : <Settings />}</main>
+      <main className="content">
+        {screen === 'play' && <Play />}
+        {screen === 'mods' && <Mods />}
+        {screen === 'settings' && <Settings />}
+      </main>
     </div>
   )
 }
