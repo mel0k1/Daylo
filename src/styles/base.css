@@ -561,6 +561,16 @@ button {
   color: #e5636f;
 }
 
+.srv-game {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.srv-game-title {
+  font-size: 12px;
+}
+
 .acc-row {
   display: flex;
   align-items: center;

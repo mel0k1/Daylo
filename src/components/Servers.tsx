@@ -5,7 +5,9 @@ import {
   serversAdd,
   serversList,
   serversRemove,
+  gameServers,
   type ServerStatus,
+  type GameServer,
 } from '../ipc/commands'
 import { hasTauri } from '../ipc/tauri'
 
@@ -20,12 +22,13 @@ const offlineStub = (s: string): ServerStatus => ({
   error: `${s}: нет связи`,
 })
 
-export function Servers() {
+export function Servers({ version }: { version: string }) {
   const [servers, setServers] = useState<string[]>([])
   const [addr, setAddr] = useState('')
   const [statuses, setStatuses] = useState<Record<string, ServerStatus>>({})
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [fromGame, setFromGame] = useState<GameServer[]>([])
 
   const pingAll = useCallback(async (list: string[]) => {
     setBusy(true)
@@ -50,6 +53,17 @@ export function Servers() {
     if (servers.length > 0) void pingAll(servers)
   }, [servers, pingAll])
 
+  // servers.dat меняется после каждого выхода из игры — перечитываем
+  useEffect(() => {
+    if (!hasTauri() || !version) {
+      setFromGame([])
+      return
+    }
+    void gameServers(version)
+      .then(setFromGame)
+      .catch(() => setFromGame([]))
+  }, [version])
+
   const add = async () => {
     const s = addr.trim()
     if (!s) return
@@ -67,6 +81,16 @@ export function Servers() {
     setError('')
     try {
       await serversRemove(s)
+      setServers(await serversList())
+    } catch (e) {
+      setError(String(e))
+    }
+  }
+
+  const track = async (s: string) => {
+    setError('')
+    try {
+      await serversAdd(s)
       setServers(await serversList())
     } catch (e) {
       setError(String(e))
@@ -130,6 +154,33 @@ export function Servers() {
           )
         })}
       </div>
+      {fromGame.length > 0 && (
+        <div className="srv-game">
+          <span className="muted srv-game-title">Из игры ({version})</span>
+          <div className="srv-list">
+            {fromGame.map((s) => (
+              <div key={s.address} className="srv-row">
+                {s.icon ? (
+                  <img className="srv-icon" src={s.icon} alt="" />
+                ) : (
+                  <div className="srv-icon empty" />
+                )}
+                <div className="srv-info">
+                  <span className="srv-addr">{s.name || s.address}</span>
+                  <span className="muted srv-meta">{s.address}</span>
+                </div>
+                <button
+                  className="srv-del"
+                  title="Добавить в наблюдаемые"
+                  onClick={() => void track(s.address)}
+                >
+                  +
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {servers.length > 0 && (
         <Button bg="#2f7d4f" disabled={busy} onClick={() => void pingAll(servers)}>
           {busy ? 'Пингуем…' : 'Обновить'}

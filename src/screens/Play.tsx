@@ -276,7 +276,7 @@ export function Play() {
             через authlib-injector.
           </p>
         </Card>
-        <Servers />
+        <Servers version={version} />
       </div>
 
       {crash && <CrashModal info={crash} onClose={dropCrash} />}

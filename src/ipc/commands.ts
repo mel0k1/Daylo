@@ -145,6 +145,15 @@ export const serversAdd = (addr: string) => invoke<void>('servers_add', { addr }
 
 export const serversRemove = (addr: string) => invoke<void>('servers_remove', { addr })
 
+export interface GameServer {
+  name: string
+  address: string
+  icon: string | null
+}
+
+export const gameServers = (version: string) =>
+  invoke<GameServer[]>('game_servers', { version })
+
 export const elyLoginStart = () => invoke<DeviceStart>('ely_login_start')
 
 export const elyLoginPoll = (deviceCode: string) =>

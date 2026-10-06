@@ -23,6 +23,7 @@ pub fn run() {
             commands::servers::servers_list,
             commands::servers::servers_add,
             commands::servers::servers_remove,
+            commands::servers::game_servers,
             commands::settings::get_launcher_settings,
             commands::settings::set_mirrors,
             commands::config::get_instance_config,

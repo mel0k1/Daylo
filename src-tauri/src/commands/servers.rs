@@ -25,3 +25,9 @@ pub async fn servers_add(addr: String) -> Result<(), String> {
 pub async fn servers_remove(addr: String) -> Result<(), String> {
     engine::core::settings::update(|st| st.servers.retain(|x| *x != addr))
 }
+
+// Серверы из servers.dat выбранной сборки
+#[tauri::command]
+pub async fn game_servers(version: String) -> Vec<engine::game::servers::GameServer> {
+    engine::game::servers::list(&version).await
+}
