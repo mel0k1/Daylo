@@ -6,6 +6,8 @@ pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             commands::system::app_info,
+            commands::update::update_check,
+            commands::update::update_install,
             commands::launch::list_versions,
             commands::launch::install_version,
             commands::launch::launch_game,

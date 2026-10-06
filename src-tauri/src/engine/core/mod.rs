@@ -2,6 +2,7 @@ pub mod ely;
 pub mod http;
 pub mod mirrors;
 pub mod paths;
+pub mod selfupdate;
 pub mod settings;
 
 use serde::Serialize;

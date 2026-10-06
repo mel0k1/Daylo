@@ -159,3 +159,15 @@ export const elySkin = (nick: string) => invoke<string | null>('ely_skin', { nic
 export const getLauncherSettings = () => invoke<LauncherSettings>('get_launcher_settings')
 
 export const setMirrors = (enabled: boolean) => invoke<void>('set_mirrors', { enabled })
+
+export interface UpdateInfo {
+  version: string
+  notes: string | null
+  url: string
+  asset_name: string
+  size: number
+}
+
+export const updateCheck = () => invoke<UpdateInfo | null>('update_check')
+
+export const updateInstall = (info: UpdateInfo) => invoke<void>('update_install', { info })

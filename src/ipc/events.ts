@@ -51,3 +51,12 @@ export interface LoaderInstalled {
 
 export const onLoaderInstalled = (fn: (p: LoaderInstalled) => void): Promise<UnlistenFn> =>
   listen<LoaderInstalled>('loader-installed', (e) => fn(e.payload))
+
+export interface UpdateProgress {
+  received: number
+  total: number
+  done: boolean
+}
+
+export const onUpdateProgress = (fn: (p: UpdateProgress) => void): Promise<UnlistenFn> =>
+  listen<UpdateProgress>('update-progress', (e) => fn(e.payload))
