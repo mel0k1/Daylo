@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tauri::Emitter;
 
 use super::super::core::{http, paths};
@@ -138,7 +138,7 @@ async fn neoforge_builds(mc: &str) -> Result<Vec<LoaderBuild>, String> {
             }
         })
         .collect();
-    out.sort_by(|a, b| num_key(&b.version).cmp(&num_key(&a.version)));
+    out.sort_by_key(|b| std::cmp::Reverse(num_key(&b.version)));
     Ok(out)
 }
 
