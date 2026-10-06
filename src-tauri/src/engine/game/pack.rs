@@ -133,10 +133,9 @@ async fn create_from(app: &tauri::AppHandle, path: &Path) -> Result<String, Stri
     let app2 = app.clone();
     let total = pack.mods.len() as u64;
     tauri::async_runtime::spawn(async move {
-        let mut stage = String::from("база");
         match install::ensure_version(app2.clone(), &pack.base).await {
             Ok(_) => {
-                stage = "моды".into();
+                let stage = String::from("моды");
                 for (i, m) in pack.mods.iter().enumerate() {
                     let _ = app2.emit(
                         "pack-progress",
@@ -205,7 +204,7 @@ async fn pick_open(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {
     app.dialog()
         .file()
         .add_filter("Сборка Daylo", &["json"])
-        .open(move |p| {
+        .pick_file(move |p| {
             let _ = tx.send(p.and_then(|f| match f {
                 FilePath::Path(p) => Some(p),
                 _ => None,
