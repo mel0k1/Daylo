@@ -87,3 +87,61 @@ export const skinSave = (nick: string, pngBase64: string) =>
 export const skinLoad = (nick: string) => invoke<string | null>('skin_load', { nick })
 
 export const skinDelete = (nick: string) => invoke<void>('skin_delete', { nick })
+
+export interface ServerStatus {
+  online: boolean
+  ms: number
+  motd: string
+  version: string
+  players_online: number
+  players_max: number
+  favicon: string | null
+  error: string | null
+}
+
+export interface DeviceStart {
+  device_code: string
+  user_code: string
+  verification_uri: string
+  interval: number
+  expires_in: number
+}
+
+export interface PollResult {
+  status: 'pending' | 'done' | 'error'
+  message?: string
+}
+
+export interface AccountInfo {
+  mode: 'ely' | 'offline'
+  name: string
+  uuid: string
+}
+
+export interface LauncherSettings {
+  use_mirrors: boolean
+}
+
+export const pingServer = (addr: string) =>
+  invoke<ServerStatus>('ping_server', { addr })
+
+export const serversList = () => invoke<string[]>('servers_list')
+
+export const serversAdd = (addr: string) => invoke<void>('servers_add', { addr })
+
+export const serversRemove = (addr: string) => invoke<void>('servers_remove', { addr })
+
+export const elyLoginStart = () => invoke<DeviceStart>('ely_login_start')
+
+export const elyLoginPoll = (deviceCode: string) =>
+  invoke<PollResult>('ely_login_poll', { deviceCode })
+
+export const elyLogout = () => invoke<void>('ely_logout')
+
+export const accountInfo = () => invoke<AccountInfo>('account_info')
+
+export const elySkin = (nick: string) => invoke<string | null>('ely_skin', { nick })
+
+export const getLauncherSettings = () => invoke<LauncherSettings>('get_launcher_settings')
+
+export const setMirrors = (enabled: boolean) => invoke<void>('set_mirrors', { enabled })

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { skinLoad } from '../ipc/commands'
+import { elySkin, skinLoad } from '../ipc/commands'
 import { hasTauri } from '../ipc/tauri'
+import { useAccount } from '../state/account'
 
 const S = 6
 
@@ -62,10 +63,19 @@ export function SkinView({ nick, refreshKey }: Props) {
     void (async () => {
       const name = nick.trim()
       if (hasTauri() && name) {
+        // Свой файл приоритетнее: им игрок переопределяет и ely, и серверный скин
         const b64 = await skinLoad(name).catch(() => null)
         if (b64) {
           render(`data:image/png;base64,${b64}`)
           return
+        }
+        const acc = useAccount.getState().info
+        if (acc?.mode === 'ely' && acc.name === name) {
+          const s = await elySkin(name).catch(() => null)
+          if (s) {
+            render(`data:image/png;base64,${s}`)
+            return
+          }
         }
       }
       // Публичный сервис как предпросмотр; неизвестный ник покажет стива

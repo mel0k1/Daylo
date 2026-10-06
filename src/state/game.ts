@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { listVersions, launchGame, stopGame, type VersionEntry } from '../ipc/commands'
 import { hasTauri } from '../ipc/tauri'
+import { useAccount } from './account'
 import {
   onInstallProgress,
   onLaunchProgress,
@@ -110,7 +111,10 @@ export const useGame = create<GameState>((set, get) => ({
     if (busy || playing || !version) return
     set({ busy: true, error: '', stage: 'подготовка', progress: 0 })
     try {
-      await launchGame(version, nick || 'Player')
+      // Аккаунт Ely.by важнее локального ника: ядро возьмёт его имя и токен
+      const acc = useAccount.getState().info
+      const name = acc?.mode === 'ely' && acc.name ? acc.name : nick || 'Player'
+      await launchGame(version, name)
       set({ busy: false, playing: true, stage: 'игра запущена' })
     } catch (e) {
       set({ busy: false, error: String(e) })

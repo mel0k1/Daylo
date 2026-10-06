@@ -409,3 +409,174 @@ button {
   font-size: 11px;
   text-align: center;
 }
+
+.side-column {
+  width: 300px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.side-column .skin-card {
+  width: auto;
+}
+
+.ely-nick {
+  flex: 1;
+  min-width: 160px;
+  padding: 10px 14px;
+  background: #14161a;
+  border: 1px solid #3a4048;
+  border-radius: 6px;
+  color: #b7bcc4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.servers-card {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.srv-add {
+  display: flex;
+  gap: 8px;
+}
+
+.srv-add .srv-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.srv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.srv-note {
+  font-size: 12px;
+}
+
+.srv-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid #262a31;
+  border-radius: 8px;
+  background: #14161a;
+}
+
+.srv-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+}
+
+.srv-icon.empty {
+  background: #22262e;
+}
+
+.srv-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.srv-addr {
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.srv-meta {
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.srv-down {
+  color: #e5636f;
+}
+
+.srv-del {
+  border: 0;
+  background: transparent;
+  color: #7d838d;
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 4px 6px;
+}
+
+.srv-del:hover {
+  color: #e5636f;
+}
+
+.acc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.acc-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.acc-uuid {
+  font-size: 12px;
+  font-family: ui-monospace, monospace;
+}
+
+.ely-login {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.user-code {
+  font-family: ui-monospace, monospace;
+  font-size: 26px;
+  letter-spacing: 6px;
+  background: #14161a;
+  border: 1px solid #3a4048;
+  border-radius: 8px;
+  padding: 10px 18px;
+}
+
+.ely-link {
+  color: #7d9bff;
+  word-break: break-all;
+  align-self: center;
+}
+
+.check-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.check-row input {
+  width: 16px;
+  height: 16px;
+  accent-color: #2b3fbd;
+}
+
+.mirrors-note {
+  font-size: 12px;
+}

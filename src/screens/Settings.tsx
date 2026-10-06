@@ -1,7 +1,117 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, Input, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from 'pixel-retroui'
-import { listVersions, getInstanceConfig, saveInstanceConfig, type VersionEntry } from '../ipc/commands'
+import {
+  listVersions,
+  getInstanceConfig,
+  saveInstanceConfig,
+  getLauncherSettings,
+  setMirrors,
+  type VersionEntry,
+} from '../ipc/commands'
+import { useAccount } from '../state/account'
 import { hasTauri } from '../ipc/tauri'
+
+// Вход через Ely.by: код устройства, браузер, ожидание подтверждения
+function AccountCard() {
+  const { info, login, error, init, startLogin, cancelLogin, logout } = useAccount()
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    void init()
+  }, [init])
+
+  const copyCode = async () => {
+    if (!login) return
+    try {
+      await navigator.clipboard.writeText(login.userCode)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // в старых webview буфер может быть недоступен — код и так виден
+    }
+  }
+
+  return (
+    <Card className="play-card">
+      <h2 className="retro-title">Аккаунт</h2>
+      {info?.mode === 'ely' ? (
+        <div className="acc-row">
+          <div className="acc-info">
+            <span>{info.name}</span>
+            <span className="muted acc-uuid">{info.uuid}</span>
+          </div>
+          <Button bg="#a03030" onClick={() => void logout()}>
+            Выйти
+          </Button>
+        </div>
+      ) : login ? (
+        <div className="ely-login">
+          <p>Введите код на странице входа Ely.by:</p>
+          <div className="user-code">{login.userCode}</div>
+          <div className="play-row">
+            <Button onClick={() => void copyCode()}>{copied ? 'Скопировано' : 'Скопировать код'}</Button>
+            <a className="ely-link" href={login.verificationUri} target="_blank" rel="noreferrer">
+              {login.verificationUri}
+            </a>
+          </div>
+          <p className="muted">Ждём подтверждение…</p>
+          <Button bg="#a03030" onClick={cancelLogin}>
+            Отмена
+          </Button>
+        </div>
+      ) : (
+        <div className="ely-login">
+          <p className="muted">
+            Оффлайн-режим без авторизации. Аккаунт Ely.by даст скины и вход на серверы с Ely.by.
+          </p>
+          <Button bg="#2f7d4f" onClick={() => void startLogin()}>
+            Войти через Ely.by
+          </Button>
+        </div>
+      )}
+      {error && <p className="error">{error}</p>}
+    </Card>
+  )
+}
+
+// Зеркало BMCLAPI ускоряет библиотеки и ассеты из России
+function MirrorsCard() {
+  const [on, setOn] = useState(true)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    if (!hasTauri()) return
+    void getLauncherSettings()
+      .then((s) => setOn(s.use_mirrors))
+      .catch(() => {})
+  }, [])
+
+  const toggle = async () => {
+    const next = !on
+    setOn(next)
+    try {
+      await setMirrors(next)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 1500)
+    } catch {
+      setOn(!next)
+    }
+  }
+
+  return (
+    <Card className="play-card">
+      <h2 className="retro-title">Загрузки</h2>
+      <label className="check-row">
+        <input type="checkbox" checked={on} onChange={() => void toggle()} disabled={!hasTauri()} />
+        <span>Зеркало BMCLAPI для библиотек, ассетов и загрузчиков</span>
+      </label>
+      <p className="muted mirrors-note">
+        Оригинальные серверы Mojang и maven остаются запасным путём: если зеркало молчит, качаем
+        напрямую. {saved && 'Сохранено.'}
+      </p>
+    </Card>
+  )
+}
 
 export function Settings() {
   const [versions, setVersions] = useState<VersionEntry[]>([])
@@ -74,6 +184,8 @@ export function Settings() {
     <div className="screen">
       <h1 className="retro-title">Настройки</h1>
 
+      {online && <AccountCard />}
+
       <Card className="play-card">
         <div className="play-row">
           <DropdownMenu>
@@ -128,6 +240,8 @@ export function Settings() {
           </Button>
         </div>
       </Card>
+
+      {online && <MirrorsCard />}
     </div>
   )
 }

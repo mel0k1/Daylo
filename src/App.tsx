@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { useUi } from './state/ui'
+import { useAccount } from './state/account'
 import { Play } from './screens/Play'
 import { Mods } from './screens/Mods'
 import { Settings } from './screens/Settings'
@@ -11,6 +13,10 @@ const navItems: { id: 'play' | 'mods' | 'settings'; label: string }[] = [
 
 export default function App() {
   const screen = useUi((s) => s.screen)
+
+  useEffect(() => {
+    void useAccount.getState().init()
+  }, [])
 
   return (
     <div className="app">

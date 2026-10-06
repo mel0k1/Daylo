@@ -10,9 +10,11 @@ import {
   DropdownMenuItem,
 } from 'pixel-retroui'
 import { useGame } from '../state/game'
+import { useAccount } from '../state/account'
 import { hasTauri } from '../ipc/tauri'
 import { installLoader, loaderBuilds, skinSave, skinDelete, type LoaderBuild } from '../ipc/commands'
 import { SkinView } from '../components/SkinView'
+import { Servers } from '../components/Servers'
 
 type Tab = 'vanilla' | 'fabric' | 'forge' | 'neoforge'
 
@@ -48,6 +50,9 @@ export function Play() {
   const [installing, setInstalling] = useState(false)
   const [skinKey, setSkinKey] = useState(0)
   const [skinError, setSkinError] = useState('')
+  // Под аккаунтом Ely.by ник задаёт сервер авторизации, поле не редактируется
+  const elyName = useAccount((s) => (s.info?.mode === 'ely' ? s.info.name : ''))
+  const elyMode = elyName !== ''
 
   useEffect(() => {
     void init()
@@ -155,13 +160,17 @@ export function Play() {
           </div>
 
           <div className="play-row">
-            <Input
-              className="nick"
-              value={nick}
-              onChange={(e) => setNick(e.target.value)}
-              placeholder="Ник"
-              maxLength={16}
-            />
+            {elyMode ? (
+              <span className="nick ely-nick" title="Аккаунт Ely.by">{elyName}</span>
+            ) : (
+              <Input
+                className="nick"
+                value={nick}
+                onChange={(e) => setNick(e.target.value)}
+                placeholder="Ник"
+                maxLength={16}
+              />
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger>
                 {selected && list.some((v) => v.id === version) ? version : 'Версия…'}
@@ -238,24 +247,34 @@ export function Play() {
         )}
       </div>
 
-      <Card className="skin-card">
-        <h2 className="retro-title">Скин</h2>
-        <SkinView nick={nick} refreshKey={skinKey} />
-        <label className="skin-buttons">
-          <input
-            type="file"
-            accept="image/png"
-            className="skin-file"
-            onChange={(e) => void onSkinFile(e.target.files?.[0])}
-          />
-          <span>Скин PNG</span>
-        </label>
-        <Button bg="#a03030" onClick={() => void removeSkin()} disabled={!nick.trim()}>
-          Убрать
-        </Button>
-        {skinError && <p className="error">{skinError}</p>}
-        <p className="muted skin-note">Скин применяется через CustomSkinLoader в сборках с загрузчиком.</p>
-      </Card>
+      <div className="side-column">
+        <Card className="skin-card">
+          <h2 className="retro-title">Скин</h2>
+          <SkinView nick={elyMode ? elyName : nick} refreshKey={skinKey} />
+          <label className="skin-buttons">
+            <input
+              type="file"
+              accept="image/png"
+              className="skin-file"
+              onChange={(e) => void onSkinFile(e.target.files?.[0])}
+            />
+            <span>Скин PNG</span>
+          </label>
+          <Button
+            bg="#a03030"
+            onClick={() => void removeSkin()}
+            disabled={!elyMode && !nick.trim()}
+          >
+            Убрать
+          </Button>
+          {skinError && <p className="error">{skinError}</p>}
+          <p className="muted skin-note">
+            Скин применяется через CustomSkinLoader в сборках с загрузчиком; с аккаунтом Ely.by —
+            через authlib-injector.
+          </p>
+        </Card>
+        <Servers />
+      </div>
     </div>
   )
 }
