@@ -7,6 +7,10 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    // target/ лочит файлы на Windows — watcher туда лезть не должен
+    watch: {
+      ignored: ['**/src-tauri/target/**'],
+    },
   },
   build: {
     target: 'esnext',

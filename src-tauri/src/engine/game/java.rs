@@ -99,7 +99,8 @@ pub async fn ensure_java(major: u32) -> Result<PathBuf, String> {
     let _ = tokio::fs::remove_dir_all(&extract_dir).await;
     let _ = tokio::fs::remove_file(&archive).await;
 
-    if !cfg!(target_os = "windows") {
+    #[cfg(unix)]
+    {
         use std::os::unix::fs::PermissionsExt;
         let _ = tokio::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).await;
     }
