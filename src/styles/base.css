@@ -261,6 +261,45 @@ button {
   word-break: break-all;
 }
 
+.mods-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mods-updates-note {
+  font-size: 13px;
+}
+
+.mods-update-hint {
+  font-size: 12px;
+  color: #6fbf83;
+}
+
+.mods-row-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.link-btn {
+  border: 0;
+  background: none;
+  color: #7d9bff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.link-btn:disabled {
+  color: #7d838d;
+  cursor: default;
+}
+
 .field {
   display: flex;
   flex-direction: column;

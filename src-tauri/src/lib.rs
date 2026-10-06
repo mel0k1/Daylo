@@ -30,6 +30,8 @@ pub fn run() {
             commands::mods::modrinth_install,
             commands::mods::mods_list,
             commands::mods::mods_delete,
+            commands::mods::mods_updates,
+            commands::mods::mods_update,
             commands::skin::skin_save,
             commands::skin::skin_load,
             commands::skin::skin_delete,

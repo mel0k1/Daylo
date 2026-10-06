@@ -69,6 +69,20 @@ export const modsList = (version: string) => invoke<string[]>('mods_list', { ver
 export const modsDelete = (version: string, file: string) =>
   invoke<void>('mods_delete', { version, file })
 
+export interface ModUpdate {
+  file: string
+  project_id: string
+  current_version: string
+  latest_version_id: string
+  latest_version_number: string
+}
+
+export const modsUpdates = (version: string) =>
+  invoke<ModUpdate[]>('mods_updates', { version })
+
+export const modsUpdate = (version: string, file: string, modVersionId: string) =>
+  invoke<void>('mods_update', { version, file, modVersionId })
+
 export const getInstanceConfig = (version: string) =>
   invoke<InstanceConfig>('get_instance_config', { version })
 

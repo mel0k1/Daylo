@@ -8,7 +8,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from 'pixel-retroui'
-import { listVersions, modrinthSearch, modrinthVersions, modrinthInstall, modsList, modsDelete, type VersionEntry, type SearchHit, type ModVersion } from '../ipc/commands'
+import { listVersions, modrinthSearch, modrinthVersions, modrinthInstall, modsList, modsDelete, modsUpdates, modsUpdate, type VersionEntry, type SearchHit, type ModVersion, type ModUpdate } from '../ipc/commands'
 import { hasTauri } from '../ipc/tauri'
 
 function fmtDownloads(n: number): string {
@@ -25,6 +25,9 @@ export function Mods() {
   const [picked, setPicked] = useState<SearchHit | null>(null)
   const [modVersions, setModVersions] = useState<ModVersion[]>([])
   const [installed, setInstalled] = useState<string[]>([])
+  const [updates, setUpdates] = useState<ModUpdate[]>([])
+  const [checkBusy, setCheckBusy] = useState(false)
+  const [updating, setUpdating] = useState('')
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
 
@@ -35,6 +38,43 @@ export function Mods() {
     void modsList(id)
       .then(setInstalled)
       .catch(() => setInstalled([]))
+  }
+
+  const check = async () => {
+    if (!online || !instance) return
+    setCheckBusy(true)
+    setError('')
+    try {
+      const list = await modsUpdates(instance)
+      setUpdates(list)
+      refreshInstalled(instance)
+      if (list.length === 0) setError('')
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setCheckBusy(false)
+    }
+  }
+
+  const applyUpdate = async (u: ModUpdate) => {
+    if (!online || !instance) return
+    setUpdating(u.file)
+    setError('')
+    try {
+      await modsUpdate(instance, u.file, u.latest_version_id)
+      setUpdates((list) => list.filter((x) => x.file !== u.file))
+      refreshInstalled(instance)
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setUpdating('')
+    }
+  }
+
+  const applyAll = async () => {
+    for (const u of [...updates]) {
+      await applyUpdate(u)
+    }
   }
 
   useEffect(() => {
@@ -55,6 +95,7 @@ export function Mods() {
   const pickInstance = (id: string) => {
     localStorage.setItem('daylo.mods.version', id)
     setInstance(id)
+    setUpdates([])
     refreshInstalled(id)
   }
 
@@ -207,16 +248,50 @@ export function Mods() {
 
       {installed.length > 0 && (
         <Card className="mods-installed">
-          <h2 className="retro-title">Установлено · {instance}</h2>
+          <div className="mods-head">
+            <h2 className="retro-title">Установлено · {instance}</h2>
+            <Button onClick={() => void check()} disabled={checkBusy}>
+              {checkBusy ? 'Проверяем…' : 'Проверить обновления'}
+            </Button>
+          </div>
+          {updates.length > 0 && (
+            <p className="muted mods-updates-note">
+              Доступно обновлений: {updates.length}.{' '}
+              <button className="link-btn" onClick={() => void applyAll()} disabled={updating !== ''}>
+                Обновить все
+              </button>
+            </p>
+          )}
           <div className="mods-version-list">
-            {installed.map((file) => (
-              <div className="mods-version-row" key={file}>
-                <span className="mods-version-name">{file}</span>
-                <Button bg="#a03030" onClick={() => void uninstall(file)}>
-                  Удалить
-                </Button>
-              </div>
-            ))}
+            {installed.map((file) => {
+              const upd = updates.find((u) => u.file === file)
+              return (
+                <div className="mods-version-row" key={file}>
+                  <div className="mods-version-info">
+                    <span className="mods-version-name">{file}</span>
+                    {upd && (
+                      <span className="mods-update-hint">
+                        {upd.current_version || 'старая версия'} → {upd.latest_version_number}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mods-row-actions">
+                    {upd && (
+                      <Button
+                        bg="#2f7d4f"
+                        onClick={() => void applyUpdate(upd)}
+                        disabled={updating !== ''}
+                      >
+                        {updating === upd.file ? 'Обновляем…' : 'Обновить'}
+                      </Button>
+                    )}
+                    <Button bg="#a03030" onClick={() => void uninstall(file)}>
+                      Удалить
+                    </Button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </Card>
       )}
