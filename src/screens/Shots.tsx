@@ -62,7 +62,7 @@ export function Shots() {
         const id = stored && ids.includes(stored) ? stored : (ids[0] ?? '')
         setVersion(id)
       })
-      .catch((e) => setError(String(e)))
+      .catch((e: unknown) => setError(String(e)))
   }, [online])
 
   useEffect(() => {
