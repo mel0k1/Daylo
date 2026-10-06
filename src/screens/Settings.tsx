@@ -6,9 +6,13 @@ import {
   saveInstanceConfig,
   getLauncherSettings,
   setMirrors,
+  packExport,
+  packImport,
   type VersionEntry,
 } from '../ipc/commands'
+import { onPackProgress, onPackImported, type PackProgress } from '../ipc/events'
 import { useAccount } from '../state/account'
+import { useGame } from '../state/game'
 import { hasTauri } from '../ipc/tauri'
 
 // Вход через Ely.by: код устройства, браузер, ожидание подтверждения
@@ -109,6 +113,77 @@ function MirrorsCard() {
         Оригинальные серверы Mojang и maven остаются запасным путём: если зеркало молчит, качаем
         напрямую. {saved && 'Сохранено.'}
       </p>
+    </Card>
+  )
+}
+
+// Экспорт текущей сборки в файл и импорт файла-сборки
+function PacksCard() {
+  const [busy, setBusy] = useState('')
+  const [stage, setStage] = useState('')
+  const [error, setError] = useState('')
+  const refresh = useGame((s) => s.refresh)
+  const versions = useGame((s) => s.versions)
+  const current = localStorage.getItem('daylo.cfg.version') ?? versions.find((v) => v.type === 'release')?.id ?? ''
+
+  useEffect(() => {
+    if (!hasTauri()) return
+    void onPackProgress((p: PackProgress) => setStage(p.error ? '' : `${p.stage} ${p.done}/${p.total}`))
+    void onPackImported((p: { id: string; error: string | null }) => {
+      setBusy('')
+      setStage('')
+      void refresh()
+      if (p.error) setError(p.error)
+    })
+  }, [refresh])
+
+  const doExport = async () => {
+    if (!current || busy) return
+    setBusy('export')
+    setError('')
+    try {
+      const path = await packExport(current)
+      if (path) setStage(`Сборка сохранена: ${path}`)
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const doImport = async () => {
+    if (busy) return
+    setBusy('import')
+    setStage('')
+    setError('')
+    try {
+      const id = await packImport()
+      if (id) setStage(`Ставим сборку ${id}…`)
+      else setBusy('')
+    } catch (e) {
+      setError(String(e))
+      setBusy('')
+      setStage('')
+    }
+  }
+
+  return (
+    <Card className="play-card">
+      <h2 className="retro-title">Сборки</h2>
+      <p className="muted mirrors-note">
+        Файл-сборка — один json: версия игры, память и список модов. Моды и сама игра скачаются с
+        Modrinth и серверов Mojang при импорте.
+      </p>
+      <div className="play-row">
+        <Button onClick={() => void doExport()} disabled={busy !== '' || !current}>
+          {busy === 'export' ? 'Сохраняем…' : 'Экспортировать текущую'}
+        </Button>
+        <Button bg="#2f7d4f" onClick={() => void doImport()} disabled={busy !== ''}>
+          {busy === 'import' ? 'Импортируем…' : 'Импорт из файла'}
+        </Button>
+      </div>
+      {stage && <p className="muted">{stage}</p>}
+      {error && <p className="error">{error}</p>}
     </Card>
   )
 }
@@ -242,6 +317,8 @@ export function Settings() {
       </Card>
 
       {online && <MirrorsCard />}
+
+      {online && <PacksCard />}
     </div>
   )
 }

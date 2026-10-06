@@ -5,5 +5,6 @@ pub mod mods;
 pub mod servers;
 pub mod settings;
 pub mod skin;
+pub mod pack;
 pub mod system;
 pub mod update;

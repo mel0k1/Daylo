@@ -7,6 +7,7 @@ pub mod loaders;
 pub mod mcmeta;
 pub mod nbt;
 pub mod modrinth;
+pub mod pack;
 pub mod ping;
 pub mod servers;
 pub mod skin;

@@ -180,3 +180,8 @@ export interface UpdateInfo {
 export const updateCheck = () => invoke<UpdateInfo | null>('update_check')
 
 export const updateInstall = (info: UpdateInfo) => invoke<void>('update_install', { info })
+
+export const packExport = (version: string) =>
+  invoke<string | null>('pack_export', { version })
+
+export const packImport = () => invoke<string | null>('pack_import')

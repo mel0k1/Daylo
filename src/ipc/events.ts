@@ -60,3 +60,21 @@ export interface UpdateProgress {
 
 export const onUpdateProgress = (fn: (p: UpdateProgress) => void): Promise<UnlistenFn> =>
   listen<UpdateProgress>('update-progress', (e) => fn(e.payload))
+
+export interface PackProgress {
+  stage: string
+  done: number
+  total: number
+  error: string | null
+}
+
+export interface PackImported {
+  id: string
+  error: string | null
+}
+
+export const onPackProgress = (fn: (p: PackProgress) => void): Promise<UnlistenFn> =>
+  listen<PackProgress>('pack-progress', (e) => fn(e.payload))
+
+export const onPackImported = (fn: (p: PackImported) => void): Promise<UnlistenFn> =>
+  listen<PackImported>('pack-imported', (e) => fn(e.payload))

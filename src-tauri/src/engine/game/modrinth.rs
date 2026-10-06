@@ -332,6 +332,11 @@ pub async fn update(instance: &str, old_file: &str, mod_version_id: &str) -> Res
     uninstall(instance, old_file).await
 }
 
+// Заполняет учёт модов при импорте сборки: файлы докачаются позже
+pub async fn seed_meta(instance: &str, mods: &[ModMeta]) -> Result<(), String> {
+    save_meta(&meta_path(instance), mods)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
