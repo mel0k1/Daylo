@@ -4,7 +4,6 @@ use tauri::Emitter;
 use super::super::core::{http, paths};
 use super::install;
 use super::java;
-use super::mcmeta;
 
 const FABRIC_META: &str = "https://meta.fabricmc.net/v2";
 const FORGE_META: &str = "https://files.minecraftforge.net/net/minecraftforge/forge";
@@ -295,18 +294,18 @@ fn profile_snapshot() -> Vec<(std::path::PathBuf, std::time::SystemTime)> {
 
 fn list_profile_jsons() -> Vec<std::path::PathBuf> {
     let mut out = Vec::new();
-    let Ok(mut rd) = tokio::fs::read_dir(paths::versions_dir()).await else {
+    let Ok(rd) = std::fs::read_dir(paths::versions_dir()) else {
         return out;
     };
-    while let Ok(Some(entry)) = rd.next_entry().await {
+    for entry in rd.flatten() {
         let dir = entry.path();
         if !dir.is_dir() {
             continue;
         }
-        let Ok(mut files) = tokio::fs::read_dir(&dir).await else {
+        let Ok(files) = std::fs::read_dir(&dir) else {
             continue;
         };
-        while let Ok(Some(f)) = files.next_entry().await {
+        for f in files.flatten() {
             let p = f.path();
             if p.extension().is_some_and(|e| e == "json") {
                 out.push(p);
