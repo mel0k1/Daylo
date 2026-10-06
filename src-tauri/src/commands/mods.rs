@@ -23,7 +23,7 @@ pub async fn modrinth_install(version: String, mod_version_id: String) -> Result
 
 #[tauri::command]
 pub async fn mods_list(version: String) -> Result<Vec<String>, String> {
-    Ok(engine::game::modrinth::installed(&version))
+    Ok(engine::game::modrinth::installed(&version).await)
 }
 
 #[tauri::command]
