@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { skinLoad } from '../ipc/commands'
+import { hasTauri } from '../ipc/tauri'
 
 const S = 6
 
@@ -58,8 +60,6 @@ export function SkinView({ nick, refreshKey }: Props) {
       img.src = src
     }
     void (async () => {
-      const { skinLoad, } = await import('../ipc/commands')
-      const { hasTauri } = await import('../ipc/tauri')
       const name = nick.trim()
       if (hasTauri() && name) {
         const b64 = await skinLoad(name).catch(() => null)
