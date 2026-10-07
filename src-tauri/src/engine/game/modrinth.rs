@@ -7,8 +7,8 @@ use super::super::core::{http, paths};
 
 const API: &str = "https://api.modrinth.com/v2";
 
-// Процентное кодирование query-параметров
-fn enc(s: &str) -> String {
+// Процентное кодирование query-параметров (нужно и CurseForge-CDN)
+pub fn enc(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for b in s.as_bytes() {
         match b {
@@ -59,6 +59,27 @@ struct FileRaw {
     size: u64,
     #[serde(default)]
     primary: bool,
+}
+
+// Файл версии сборки (для установки .mrpack)
+#[derive(Serialize, Clone)]
+pub struct PackFile {
+    pub url: String,
+    pub filename: String,
+    pub hashes: std::collections::HashMap<String, String>,
+    pub size: u64,
+    pub primary: bool,
+}
+
+// Версия сборки Modrinth
+#[derive(Serialize, Clone)]
+pub struct PackVersion {
+    pub id: String,
+    pub version_number: String,
+    pub date_published: String,
+    pub game_versions: Vec<String>,
+    pub loaders: Vec<String>,
+    pub files: Vec<PackFile>,
 }
 
 #[derive(Deserialize)]
@@ -126,7 +147,16 @@ fn to_mod_version(v: &VersionRaw, f: &FileRaw) -> ModVersion {
 
 // Поиск модов: всегда project_type:mod, версия игры — если задана
 pub async fn search(query: &str, game_version: &str) -> Result<Vec<SearchHit>, String> {
-    let mut facets = vec![r#""project_type:mod""#.to_string()];
+    search_type(query, game_version, "mod").await
+}
+
+// Поиск по типу проекта: mod, modpack, resourcepack…
+pub async fn search_type(
+    query: &str,
+    game_version: &str,
+    project_type: &str,
+) -> Result<Vec<SearchHit>, String> {
+    let mut facets = vec![format!(r#""project_type:{project_type}""#)];
     if !game_version.is_empty() {
         facets.push(format!(r#""versions:{game_version}""#));
     }
@@ -167,6 +197,34 @@ pub async fn versions(project_id: &str, game_version: &str) -> Result<Vec<ModVer
         }
     }
     Ok(out)
+}
+
+// Все версии проекта сборки (для установки .mrpack)
+pub async fn pack_versions(project_id: &str) -> Result<Vec<PackVersion>, String> {
+    let url = format!("{API}/project/{project_id}/version");
+    let raw: Vec<VersionRaw> = serde_json::from_str(&http::text(&url).await?)
+        .map_err(|e| format!("ответ Modrinth: {e}"))?;
+    Ok(raw
+        .into_iter()
+        .map(|v| PackVersion {
+            id: v.id,
+            version_number: v.version_number,
+            date_published: v.date_published,
+            game_versions: v.game_versions,
+            loaders: v.loaders,
+            files: v
+                .files
+                .into_iter()
+                .map(|f| PackFile {
+                    url: f.url,
+                    filename: f.filename,
+                    hashes: f.hashes,
+                    size: f.size,
+                    primary: f.primary,
+                })
+                .collect(),
+        })
+        .collect())
 }
 
 // Качает файл версии мода в mods/ указанной сборки и запоминает происхождение
@@ -335,6 +393,14 @@ pub async fn update(instance: &str, old_file: &str, mod_version_id: &str) -> Res
 // Заполняет учёт модов при импорте сборки: файлы докачаются позже
 pub async fn seed_meta(instance: &str, mods: &[ModMeta]) -> Result<(), String> {
     save_meta(&meta_path(instance), mods)
+}
+
+// Добавляет или обновляет запись об одном файле (моды CurseForge)
+pub async fn track(instance: &str, meta: ModMeta) -> Result<(), String> {
+    let mut list = load_meta(&meta_path(instance));
+    list.retain(|m| m.file != meta.file);
+    list.push(meta);
+    save_meta(&meta_path(instance), &list)
 }
 
 #[cfg(test)]

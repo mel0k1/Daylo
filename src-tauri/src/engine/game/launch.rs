@@ -83,8 +83,14 @@ fn expand_args(args: &[Arg], map: &HashMap<&str, String>) -> Vec<String> {
     out
 }
 
-// Стартует игру: ставит недостающее, подбирает Java, запускает JVM
-pub async fn launch(app: tauri::AppHandle, version_id: &str, nick: &str) -> Result<(), String> {
+// Стартует игру: ставит недостающее, подбирает Java, запускает JVM.
+// instance — имя папки сборки: у ванилы совпадает с версией, у модпаков своё
+pub async fn launch(
+    app: tauri::AppHandle,
+    version_id: &str,
+    nick: &str,
+    instance: &str,
+) -> Result<(), String> {
     // Ely.by: живой токен и профиль важнее локального ника; сбой сети — играем оффлайн
     let acc = ely::current_account().await;
     let (player, uuid, token, user_type) = match &acc {
@@ -128,14 +134,14 @@ pub async fn launch(app: tauri::AppHandle, version_id: &str, nick: &str) -> Resu
         },
     );
 
-    let game_dir = paths::instance_dir(version_id);
+    let game_dir = paths::instance_dir(instance);
     tokio::fs::create_dir_all(&game_dir)
         .await
         .map_err(|e| format!("папка сборки: {e}"))?;
 
     // Скин через CustomSkinLoader — только у профилей с загрузчиком; сбой не мешает запуску
     if let Some(base) = &v.inherits_from {
-        if let Err(e) = super::skin::apply_to_instance(version_id, base, &player).await {
+        if let Err(e) = super::skin::apply_to_instance(instance, base, &player).await {
             eprintln!("скин не применён: {e}");
         }
     }
@@ -177,7 +183,7 @@ pub async fn launch(app: tauri::AppHandle, version_id: &str, nick: &str) -> Resu
         paths::libraries_dir().to_string_lossy().to_string(),
     );
 
-    let cfg = config::load(version_id).await;
+    let cfg = config::load(instance).await;
 
     // Правила с os учитываются заранее — expand_args уже отфильтровал их в install
     let features = [""];
@@ -272,17 +278,17 @@ pub async fn launch(app: tauri::AppHandle, version_id: &str, nick: &str) -> Resu
     running()
         .lock()
         .map_err(|_| "реестр процессов")?
-        .insert(version_id.to_string(), child.clone());
+        .insert(instance.to_string(), child.clone());
 
     let app_log = app.clone();
-    let log_version = version_id.to_string();
+    let log_version = instance.to_string();
     tauri::async_runtime::spawn(async move {
         read_stream(stdout, &app_log, &log_version, &log_path).await;
         read_stream(stderr, &app_log, &log_version, &log_path).await;
     });
 
     let app_exit = app.clone();
-    let exit_version = version_id.to_string();
+    let exit_version = instance.to_string();
     tauri::async_runtime::spawn(async move {
         // Поллим, не держа лок: stop() должен успеть сделать kill()
         loop {

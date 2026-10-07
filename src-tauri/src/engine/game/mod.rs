@@ -1,10 +1,13 @@
 pub mod config;
 pub mod crash;
+pub mod curseforge;
+pub mod ftb;
 pub mod install;
 pub mod java;
 pub mod launch;
 pub mod loaders;
 pub mod mcmeta;
+pub mod modpack;
 pub mod modrinth;
 pub mod nbt;
 pub mod pack;

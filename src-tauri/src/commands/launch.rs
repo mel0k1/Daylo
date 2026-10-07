@@ -79,7 +79,28 @@ pub async fn launch_game(
     if nick.is_empty() {
         return Err("введите ник".into());
     }
-    engine::game::launch::launch(app, &version, nick).await
+    // Ванильная сборка: папка совпадает с версией
+    engine::game::launch::launch(app, &version, nick, &version).await
+}
+
+#[tauri::command]
+pub async fn launch_instance(
+    app: tauri::AppHandle,
+    instance: String,
+    nick: String,
+) -> Result<(), String> {
+    let nick = nick.trim();
+    if nick.is_empty() {
+        return Err("введите ник".into());
+    }
+    // У модпаков в daylo.json записана версия, которой нужно запускать
+    let cfg = engine::game::config::load(&instance).await;
+    let version = if cfg.launch_version.is_empty() {
+        instance.clone()
+    } else {
+        cfg.launch_version
+    };
+    engine::game::launch::launch(app, &version, nick, &instance).await
 }
 
 #[tauri::command]

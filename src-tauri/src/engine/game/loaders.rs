@@ -6,6 +6,7 @@ use super::install;
 use super::java;
 
 const FABRIC_META: &str = "https://meta.fabricmc.net/v2";
+const QUILT_META: &str = "https://meta.quiltmc.org/v3";
 const FORGE_META: &str = "https://files.minecraftforge.net/net/minecraftforge/forge";
 const NEOFORGE_META: &str =
     "https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge";
@@ -23,6 +24,7 @@ pub struct LoaderBuild {
 pub async fn list_builds(loader: &str, mc: &str) -> Result<Vec<LoaderBuild>, String> {
     match loader {
         "fabric" => fabric_builds(mc).await,
+        "quilt" => quilt_builds(mc).await,
         "forge" => forge_builds(mc).await,
         "neoforge" => neoforge_builds(mc).await,
         _ => Err(format!("неизвестный загрузчик {loader}")),
@@ -152,12 +154,22 @@ fn num_key(v: &str) -> Vec<u64> {
 // Установка Fabric: profile json с meta, клиент подтягивается через inheritsFrom
 async fn install_fabric(mc: &str, build: &str) -> Result<String, String> {
     let url = format!("{FABRIC_META}/versions/loader/{mc}/{build}/profile/json");
-    let body = http::text_mirrored(&url).await?;
+    install_profile_json(mc, &url).await
+}
+
+// Установка Quilt: у meta.quiltmc.org тот же формат profile json
+async fn install_quilt(mc: &str, build: &str) -> Result<String, String> {
+    let url = format!("{QUILT_META}/versions/loader/{mc}/{build}/profile/json");
+    install_profile_json(mc, &url).await
+}
+
+async fn install_profile_json(mc: &str, url: &str) -> Result<String, String> {
+    let body = http::text_mirrored(url).await?;
     let raw: serde_json::Value =
-        serde_json::from_str(&body).map_err(|e| format!("ответ meta.fabricmc: {e}"))?;
+        serde_json::from_str(&body).map_err(|e| format!("ответ meta: {e}"))?;
     let id = raw["id"]
         .as_str()
-        .ok_or("у профиля Fabric нет id")?
+        .ok_or("у профиля загрузчика нет id")?
         .to_string();
     let _ = install::version_json(mc).await?;
     let dir = paths::version_dir(&id);
@@ -168,6 +180,34 @@ async fn install_fabric(mc: &str, build: &str) -> Result<String, String> {
         .await
         .map_err(|e| format!("сохранение профиля: {e}"))?;
     Ok(id)
+}
+
+// Список сборок Quilt: формат ответа как у Fabric
+async fn quilt_builds(mc: &str) -> Result<Vec<LoaderBuild>, String> {
+    let url = format!("{QUILT_META}/versions/loader/{mc}");
+    let raw: serde_json::Value = serde_json::from_str(&http::text_mirrored(&url).await?)
+        .map_err(|e| format!("ответ meta.quiltmc: {e}"))?;
+    let arr = raw.as_array().cloned().unwrap_or_default();
+    let mut out: Vec<LoaderBuild> = arr
+        .iter()
+        .filter_map(|l| {
+            let version = l["loader"]["version"].as_str()?.to_string();
+            let stable = l["loader"]["stable"].as_bool().unwrap_or(false);
+            Some(LoaderBuild {
+                version,
+                stable,
+                recommended: false,
+            })
+        })
+        .collect();
+    if let Some(i) = out
+        .iter()
+        .position(|b| b.stable)
+        .or(if out.is_empty() { None } else { Some(0) })
+    {
+        out[i].recommended = true;
+    }
+    Ok(out)
 }
 
 // Java для инсталлера и игры по версии Minecraft
@@ -338,6 +378,7 @@ pub async fn install(
 ) -> Result<String, String> {
     let id = match loader {
         "fabric" => install_fabric(mc, build).await,
+        "quilt" => install_quilt(mc, build).await,
         "forge" | "neoforge" => install_installer(app.clone(), loader, mc, build).await,
         _ => Err(format!("неизвестный загрузчик {loader}")),
     }?;
@@ -384,6 +425,8 @@ pub async fn local_profiles() -> Vec<(String, String, String)> {
 pub fn loader_tag(id: &str) -> &'static str {
     if id.starts_with("fabric-loader") {
         "fabric"
+    } else if id.starts_with("quilt-loader") {
+        "quilt"
     } else if id.starts_with("neoforge") {
         "neoforge"
     } else if id.starts_with("forge") {

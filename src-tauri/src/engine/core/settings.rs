@@ -27,6 +27,9 @@ pub struct Settings {
     pub account: Option<Account>,
     // Переопределение client_id приложения Ely.by
     pub ely_client_id: Option<String>,
+    // Ключ API CurseForge для официального эндпоинта, если зеркало недоступно
+    #[serde(default)]
+    pub cf_api_key: Option<String>,
 }
 
 impl Default for Settings {
@@ -36,6 +39,7 @@ impl Default for Settings {
             servers: Vec::new(),
             account: None,
             ely_client_id: None,
+            cf_api_key: None,
         }
     }
 }
@@ -96,6 +100,7 @@ pub fn load() -> Settings {
                         && a.refresh_token.len() <= MAX_TOKEN_LEN
                 }),
                 ely_client_id: s.ely_client_id.filter(|c| !c.is_empty() && c.len() <= 128),
+                cf_api_key: s.cf_api_key.filter(|c| !c.is_empty() && c.len() <= 256),
             }
         })
         .unwrap_or_default()
