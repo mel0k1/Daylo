@@ -1,28 +1,49 @@
+/* Daylo — пиксельная тема. Шрифты: Press Start 2P (заголовки), Pixelify Sans (текст) */
+
 :root {
   color-scheme: dark;
 
   /* Тема pixel-retroui */
   --bg-button: #2b3fbd;
   --text-button: #ffffff;
-  --border-button: #10131a;
-  --shadow-button: #10131a;
+  --border-button: #0a0c10;
+  --shadow-button: #0a0c10;
   --bg-card: #1b1e24;
   --text-card: #e6e8eb;
-  --border-card: #343b46;
-  --shadow-card: #10131a;
+  --border-card: #3a4048;
+  --shadow-card: #0a0c10;
   --bg-input: #14161a;
   --text-input: #e6e8eb;
   --border-input: #3a4048;
   --bg-dropdown: #1b1e24;
   --text-dropdown: #e6e8eb;
   --border-dropdown: #3a4048;
-  --shadow-dropdown: #10131a;
+  --shadow-dropdown: #0a0c10;
   --bg-dropdown-hover: #22262e;
   --color-progressbar: #2b3fbd;
-  --border-progressbar: #3a4048;
+  --border-progressbar: #0a0c10;
 
-  font-family: system-ui, sans-serif;
-  font-size: 14px;
+  /* Свои цвета и шрифты */
+  --bg-page: #101216;
+  --bg-panel: #1b1e24;
+  --bg-inset: #14161a;
+  --border-soft: #262a31;
+  --accent: #2b3fbd;
+  --accent-bright: #3d55e8;
+  --green: #2f7d4f;
+  --red: #a03030;
+  --warn: #f0b64b;
+  --text: #e6e8eb;
+  --text-dim: #b7bcc4;
+  --muted: #8a919c;
+  --ink: #0a0c10;
+
+  --font-pixel: 'Press Start 2P', 'Pixelify Sans', monospace;
+  --font-ui: 'Pixelify Sans', system-ui, sans-serif;
+
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.45;
 }
 
 * {
@@ -30,9 +51,41 @@
   margin: 0;
 }
 
+::selection {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Квадратный «инвентарный» скроллбар */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) var(--ink);
+}
+
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--ink);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border: 2px solid var(--ink);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-bright);
+}
+
 body {
-  background: #14161a;
-  color: #e6e8eb;
+  background-color: var(--bg-page);
+  /* Едва заметная пиксельная сетка вместо плоского фона */
+  background-image: conic-gradient(#14171c 25%, #101216 0 50%, #14171c 0 75%, #101216 0);
+  background-size: 28px 28px;
+  color: var(--text);
   height: 100vh;
   overflow: hidden;
 }
@@ -43,47 +96,141 @@ body {
   height: 100%;
 }
 
+/* ---------- Сайдбар ---------- */
+
 .sidebar {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  width: 200px;
-  padding: 16px 10px;
-  background: #1b1e24;
-  border-right: 1px solid #262a31;
+  width: 216px;
+  padding: 18px 12px 14px;
+  background: var(--bg-panel);
+  border-right: 2px solid var(--ink);
+  box-shadow: inset -4px 0 0 var(--border-soft);
 }
 
 .logo {
-  font-family: 'Minecraft', system-ui;
-  font-size: 22px;
-  padding: 4px 10px 16px;
-  color: #e6e8eb;
+  font-family: var(--font-pixel);
+  font-size: 17px;
+  color: #fff;
+  text-shadow: 3px 3px 0 var(--ink);
+  padding: 2px 8px 6px;
+  letter-spacing: 1px;
+}
+
+/* Полоска «травы» под логотипом */
+.logo-strip {
+  height: 4px;
+  margin: 0 8px 14px;
+  background: linear-gradient(#5b8f3a 0 50%, #7a5a34 50% 100%);
+  border: 2px solid var(--ink);
 }
 
 .nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   text-align: left;
-  padding: 9px 12px;
-  border: 0;
-  border-radius: 8px;
+  padding: 10px 12px;
+  border: 2px solid transparent;
+  border-radius: 0;
   background: transparent;
-  color: #b7bcc4;
-  font-size: 14px;
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
+}
+
+/* Цветной слот-иконка пункта меню */
+.nav::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  background: var(--slot, #6a7280);
+  border: 2px solid var(--ink);
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.25);
+}
+
+.sidebar .nav:nth-of-type(1) {
+  --slot: #5b8f3a;
+}
+
+.sidebar .nav:nth-of-type(2) {
+  --slot: #c17b3f;
+}
+
+.sidebar .nav:nth-of-type(3) {
+  --slot: #3f8f8f;
+}
+
+.sidebar .nav:nth-of-type(4) {
+  --slot: #8a8f98;
 }
 
 .nav:hover {
   background: #22262e;
-  color: #e6e8eb;
+  color: var(--text);
 }
 
 .nav.on {
-  background: #2b3fbd;
+  background: var(--accent);
+  border-color: var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
   color: #fff;
 }
+
+.acc-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 2px solid var(--border-soft);
+  background: var(--bg-inset);
+  font-size: 14px;
+  overflow: hidden;
+}
+
+.acc-chip .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.acc-chip .mode {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.acc-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border: 2px solid var(--ink);
+  background: #6a7280;
+}
+
+.acc-dot.ely {
+  background: #6fbf83;
+}
+
+.side-ver {
+  padding: 6px 8px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ---------- Контент ---------- */
 
 .content {
   flex: 1;
   overflow-y: auto;
+  min-width: 0;
 }
 
 .screen {
@@ -95,9 +242,15 @@ body {
 }
 
 .retro-title {
-  font-family: 'Minecraft', system-ui;
-  font-size: 20px;
+  font-family: var(--font-pixel);
+  font-size: 12px;
   font-weight: 400;
+  color: #fff;
+  text-shadow: 2px 2px 0 var(--ink);
+}
+
+h1.retro-title {
+  font-size: 15px;
 }
 
 .play-card {
@@ -132,7 +285,7 @@ body {
 }
 
 .muted {
-  color: #7d838d;
+  color: var(--muted);
 }
 
 .error {
@@ -142,11 +295,11 @@ body {
 }
 
 .log {
-  background: #101216;
-  border: 1px solid #262a31;
-  border-radius: 8px;
+  background: var(--ink);
+  border: 2px solid var(--border-soft);
+  border-radius: 0;
   padding: 12px;
-  font: 12px/1.5 ui-monospace, monospace;
+  font: 13px/1.5 ui-monospace, monospace;
   color: #9aa1ab;
   max-height: 260px;
   overflow-y: auto;
@@ -157,6 +310,8 @@ body {
 button {
   font: inherit;
 }
+
+/* ---------- Моды ---------- */
 
 .mods-screen {
   max-width: 860px;
@@ -181,7 +336,7 @@ button {
 }
 
 .mod-card.on {
-  border-color: #2b3fbd;
+  border-color: var(--accent);
 }
 
 .mod-card .mod-head {
@@ -194,9 +349,11 @@ button {
 .mod-icon {
   width: 44px;
   height: 44px;
-  border-radius: 6px;
+  border-radius: 0;
+  border: 2px solid var(--ink);
   flex-shrink: 0;
   object-fit: cover;
+  image-rendering: pixelated;
 }
 
 .mod-icon.empty {
@@ -205,12 +362,12 @@ button {
 
 .mod-title {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .mod-desc {
-  color: #9aa1ab;
-  font-size: 13px;
+  color: var(--text-dim);
+  font-size: 14px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -239,9 +396,9 @@ button {
   justify-content: space-between;
   gap: 12px;
   padding: 8px 10px;
-  border: 1px solid #262a31;
-  border-radius: 8px;
-  background: #14161a;
+  border: 2px solid var(--border-soft);
+  border-radius: 0;
+  background: var(--bg-inset);
 }
 
 .mods-version-info {
@@ -252,12 +409,12 @@ button {
 }
 
 .mods-version-name {
-  font-size: 14px;
+  font-size: 15px;
   word-break: break-all;
 }
 
 .mods-version-row .muted {
-  font-size: 12px;
+  font-size: 13px;
   word-break: break-all;
 }
 
@@ -270,11 +427,11 @@ button {
 }
 
 .mods-updates-note {
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .mods-update-hint {
-  font-size: 12px;
+  font-size: 13px;
   color: #6fbf83;
 }
 
@@ -284,21 +441,53 @@ button {
   flex-shrink: 0;
 }
 
+.mods-empty {
+  padding: 26px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+/* Крестик-пустышка как слот без предмета */
+.mods-empty-icon {
+  width: 34px;
+  height: 34px;
+  border: 2px solid var(--border-soft);
+  background: var(--bg-inset);
+  position: relative;
+}
+
+.mods-empty-icon::before,
+.mods-empty-icon::after {
+  content: '';
+  position: absolute;
+  inset: 14px 2px;
+  background: #3a4048;
+}
+
+.mods-empty-icon::after {
+  inset: 2px 14px;
+}
+
 .link-btn {
   border: 0;
   background: none;
   color: #7d9bff;
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   padding: 0;
   text-decoration: underline;
 }
 
 .link-btn:disabled {
-  color: #7d838d;
+  color: var(--muted);
   cursor: default;
 }
+
+/* ---------- Формы / настройки ---------- */
 
 .field {
   display: flex;
@@ -307,8 +496,8 @@ button {
 }
 
 .field > span {
-  color: #b7bcc4;
-  font-size: 13px;
+  color: var(--text-dim);
+  font-size: 14px;
 }
 
 .field .ram {
@@ -316,18 +505,21 @@ button {
 }
 
 .field .flags {
-  background: #14161a;
-  color: #e6e8eb;
-  border: 1px solid #3a4048;
-  border-radius: 6px;
+  background: var(--bg-inset);
+  color: var(--text);
+  border: 2px solid #3a4048;
+  border-radius: 0;
   padding: 10px;
-  font: 13px/1.6 ui-monospace, monospace;
+  font: 14px/1.6 ui-monospace, monospace;
   resize: vertical;
 }
 
 .field .flags:focus {
-  outline: 1px solid #2b3fbd;
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
+
+/* ---------- Экран игры ---------- */
 
 .play-layout {
   display: flex;
@@ -354,23 +546,25 @@ button {
 
 .tab {
   padding: 7px 14px;
-  border: 1px solid #3a4048;
-  border-radius: 8px;
-  background: #14161a;
-  color: #b7bcc4;
+  border: 2px solid #3a4048;
+  border-radius: 0;
+  background: var(--bg-inset);
+  color: var(--text-dim);
   cursor: pointer;
-  font: inherit;
-  font-size: 13px;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .tab:hover {
   background: #22262e;
-  color: #e6e8eb;
+  color: var(--text);
 }
 
 .tab.on {
-  background: #2b3fbd;
-  border-color: #2b3fbd;
+  background: var(--accent);
+  border-color: var(--ink);
+  box-shadow: 2px 2px 0 var(--ink);
   color: #fff;
 }
 
@@ -379,8 +573,10 @@ button {
   margin-right: auto;
 }
 
+/* ---------- Скин ---------- */
+
 .skin-card {
-  width: 200px;
+  width: 216px;
   flex-shrink: 0;
   padding: 16px;
   display: flex;
@@ -394,20 +590,105 @@ button {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  min-height: 200px;
   justify-content: center;
+  height: 216px;
 }
 
-.skin-view canvas {
+/* Сцена 3D-модели */
+.skin3d {
+  width: 150px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 520px;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.skin3d:active {
+  cursor: grabbing;
+}
+
+.skin3d-tilt,
+.skin3d-spin,
+.skin3d .limb {
+  position: relative;
+  transform-style: preserve-3d;
+}
+
+.skin3d .part,
+.skin3d .face {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-style: preserve-3d;
   image-rendering: pixelated;
 }
 
-.skin-view canvas.dim {
-  opacity: 0.25;
+.skin3d .face {
+  background-repeat: no-repeat;
+  background-color: transparent;
+  backface-visibility: hidden;
+}
+
+/* Затенение граней — объём без WebGL */
+.skin3d .f-top {
+  filter: brightness(1.02);
+}
+
+.skin3d .f-bottom {
+  filter: brightness(0.55);
+}
+
+.skin3d .f-front {
+  filter: brightness(0.92);
+}
+
+.skin3d .f-back {
+  filter: brightness(0.72);
+}
+
+.skin3d .f-side {
+  filter: brightness(0.8);
+}
+
+/* Ленивое покачивание рук и ног в противофазе */
+@keyframes swing {
+  from {
+    transform: rotateX(9deg);
+  }
+
+  to {
+    transform: rotateX(-9deg);
+  }
+}
+
+.skin3d .limb.swing-a {
+  animation: swing 2.6s ease-in-out infinite alternate;
+}
+
+.skin3d .limb.swing-b {
+  animation: swing 2.6s ease-in-out infinite alternate-reverse;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skin3d .limb {
+    animation: none !important;
+  }
+}
+
+.skin3d canvas {
+  display: none;
+}
+
+.skin3d.dim {
+  filter: brightness(0.3);
 }
 
 .skin-hint {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .skin-buttons {
@@ -428,11 +709,11 @@ button {
 .skin-buttons > span {
   display: block;
   padding: 8px 10px;
-  border: 1px solid #3a4048;
-  border-radius: 6px;
-  background: #14161a;
-  color: #e6e8eb;
-  font-size: 13px;
+  border: 2px solid #3a4048;
+  border-radius: 0;
+  background: var(--bg-inset);
+  color: var(--text);
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -440,17 +721,15 @@ button {
   background: #22262e;
 }
 
-.skin-buttons {
-  width: 100%;
-}
-
 .skin-note {
-  font-size: 11px;
+  font-size: 12px;
   text-align: center;
 }
 
+/* ---------- Правая колонка ---------- */
+
 .side-column {
-  width: 300px;
+  width: 236px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -466,13 +745,15 @@ button {
   flex: 1;
   min-width: 160px;
   padding: 10px 14px;
-  background: #14161a;
-  border: 1px solid #3a4048;
-  border-radius: 6px;
-  color: #b7bcc4;
+  background: var(--bg-inset);
+  border: 2px solid #3a4048;
+  border-radius: 0;
+  color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ---------- Серверы ---------- */
 
 .servers-card {
   padding: 16px;
@@ -500,7 +781,7 @@ button {
 }
 
 .srv-note {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .srv-row {
@@ -508,15 +789,16 @@ button {
   gap: 10px;
   align-items: center;
   padding: 8px 10px;
-  border: 1px solid #262a31;
-  border-radius: 8px;
-  background: #14161a;
+  border: 2px solid var(--border-soft);
+  border-radius: 0;
+  background: var(--bg-inset);
 }
 
 .srv-icon {
   width: 40px;
   height: 40px;
-  border-radius: 4px;
+  border-radius: 0;
+  border: 2px solid var(--ink);
   flex-shrink: 0;
   image-rendering: pixelated;
 }
@@ -534,12 +816,12 @@ button {
 }
 
 .srv-addr {
-  font-size: 13px;
+  font-size: 14px;
   word-break: break-all;
 }
 
 .srv-meta {
-  font-size: 12px;
+  font-size: 13px;
   word-break: break-all;
 }
 
@@ -550,7 +832,7 @@ button {
 .srv-del {
   border: 0;
   background: transparent;
-  color: #7d838d;
+  color: var(--muted);
   font-size: 16px;
   cursor: pointer;
   flex-shrink: 0;
@@ -568,8 +850,10 @@ button {
 }
 
 .srv-game-title {
-  font-size: 12px;
+  font-size: 13px;
 }
+
+/* ---------- Аккаунт / настройки Ely.by ---------- */
 
 .acc-row {
   display: flex;
@@ -601,9 +885,9 @@ button {
   font-family: ui-monospace, monospace;
   font-size: 26px;
   letter-spacing: 6px;
-  background: #14161a;
-  border: 1px solid #3a4048;
-  border-radius: 8px;
+  background: var(--bg-inset);
+  border: 2px solid #3a4048;
+  border-radius: 0;
   padding: 10px 18px;
 }
 
@@ -623,17 +907,65 @@ button {
 .check-row input {
   width: 16px;
   height: 16px;
-  accent-color: #2b3fbd;
+  accent-color: var(--accent);
 }
 
 .mirrors-note {
-  font-size: 12px;
+  font-size: 13px;
 }
+
+/* ---------- Новости (лобби Millida-style) ---------- */
+
+.news-card {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.news-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.news-tag {
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  color: #fff;
+  background: var(--green);
+  border: 2px solid var(--ink);
+  padding: 4px 7px;
+  text-shadow: 1px 1px 0 var(--ink);
+}
+
+.news-date {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.news-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.news-body {
+  font-size: 14px;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+/* ---------- Модалка краша ---------- */
 
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(10, 12, 16, 0.72);
+  background: rgba(10, 12, 16, 0.78);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -644,10 +976,10 @@ button {
   width: min(620px, calc(100vw - 48px));
   max-height: 82vh;
   overflow-y: auto;
-  background: #1b1e24;
-  border: 1px solid #3a4048;
-  border-radius: 10px;
-  box-shadow: 6px 6px 0 #10131a;
+  background: var(--bg-panel);
+  border: 2px solid #3a4048;
+  border-radius: 0;
+  box-shadow: 6px 6px 0 var(--ink);
   padding: 22px;
   display: flex;
   flex-direction: column;
@@ -656,13 +988,13 @@ button {
 
 .crash-cause {
   font-size: 16px;
-  color: #f0b64b;
-  font-weight: 600;
+  color: var(--warn);
+  font-weight: 700;
 }
 
 .crash-reason {
-  color: #b7bcc4;
-  font-size: 13px;
+  color: var(--text-dim);
+  font-size: 14px;
   line-height: 1.55;
 }
 
@@ -671,24 +1003,24 @@ button {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 13px;
-  color: #e6e8eb;
+  font-size: 14px;
+  color: var(--text);
 }
 
 .crash-details summary {
   cursor: pointer;
-  color: #7d838d;
-  font-size: 13px;
+  color: var(--muted);
+  font-size: 14px;
   user-select: none;
 }
 
 .crash-log {
   margin-top: 8px;
-  background: #101216;
-  border: 1px solid #262a31;
-  border-radius: 8px;
+  background: var(--ink);
+  border: 2px solid var(--border-soft);
+  border-radius: 0;
   padding: 10px;
-  font: 11px/1.5 ui-monospace, monospace;
+  font: 12px/1.5 ui-monospace, monospace;
   color: #9aa1ab;
   max-height: 240px;
   overflow-y: auto;
@@ -696,29 +1028,31 @@ button {
   word-break: break-word;
 }
 
+/* ---------- Обновление лаунчера ---------- */
+
 .update-banner {
   margin-top: auto;
   padding: 10px 12px;
-  border: 1px solid #3a4048;
-  border-radius: 8px;
-  background: #14161a;
+  border: 2px solid #3a4048;
+  border-radius: 0;
+  background: var(--bg-inset);
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .update-bar {
   height: 6px;
-  border: 1px solid #3a4048;
-  border-radius: 3px;
+  border: 2px solid #3a4048;
+  border-radius: 0;
   overflow: hidden;
-  background: #101216;
+  background: var(--ink);
 }
 
 .update-bar-fill {
   height: 100%;
-  background: #2b3fbd;
+  background: var(--accent);
   transition: width 0.3s;
 }
 
@@ -726,6 +1060,8 @@ button {
   font-size: 11px;
   padding: 0 4px;
 }
+
+/* ---------- Скриншоты ---------- */
 
 .shots-screen {
   max-width: 960px;
@@ -749,9 +1085,9 @@ button {
 }
 
 .shot-card {
-  border: 1px solid #262a31;
-  border-radius: 8px;
-  background: #14161a;
+  border: 2px solid var(--border-soft);
+  border-radius: 0;
+  background: var(--bg-inset);
   padding: 8px;
   cursor: pointer;
   display: flex;
@@ -761,14 +1097,14 @@ button {
 }
 
 .shot-card:hover {
-  border-color: #2b3fbd;
+  border-color: var(--accent);
 }
 
 .shot-img {
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 .shot-img.empty {
@@ -776,8 +1112,8 @@ button {
 }
 
 .shot-name {
-  font-size: 11px;
-  color: #7d838d;
+  font-size: 12px;
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -785,9 +1121,9 @@ button {
 
 .shot-view {
   max-width: min(1100px, calc(100vw - 48px));
-  background: #1b1e24;
-  border: 1px solid #3a4048;
-  border-radius: 10px;
+  background: var(--bg-panel);
+  border: 2px solid #3a4048;
+  border-radius: 0;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -802,7 +1138,7 @@ button {
 }
 
 .shot-view-head .shot-name {
-  font-size: 13px;
+  font-size: 14px;
   flex: 1;
 }
 
@@ -810,5 +1146,10 @@ button {
   max-width: 100%;
   max-height: 70vh;
   object-fit: contain;
-  border-radius: 6px;
+  border-radius: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 1px;
 }

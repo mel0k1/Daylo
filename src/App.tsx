@@ -6,7 +6,7 @@ import { Mods } from './screens/Mods'
 import { Shots } from './screens/Shots'
 import { Settings } from './screens/Settings'
 import { hasTauri } from './ipc/tauri'
-import { updateInstall, updateCheck, type UpdateInfo } from './ipc/commands'
+import { appInfo, updateInstall, updateCheck, type UpdateInfo } from './ipc/commands'
 import { onUpdateProgress, type UpdateProgress } from './ipc/events'
 
 const navItems: { id: 'play' | 'mods' | 'shots' | 'settings'; label: string }[] = [
@@ -21,9 +21,14 @@ export default function App() {
   const [update, setUpdate] = useState<UpdateInfo | null>(null)
   const [progress, setProgress] = useState<UpdateProgress | null>(null)
   const [updateError, setUpdateError] = useState('')
+  const [ver, setVer] = useState('')
+  const account = useAccount((s) => s.info)
 
   useEffect(() => {
     void useAccount.getState().init()
+    void appInfo()
+      .then((a) => setVer(a.version))
+      .catch(() => {})
     if (!hasTauri()) return
     // Проверка свежей версии при старте; сбой сети не мешает работе
     void updateCheck()
@@ -50,6 +55,7 @@ export default function App() {
     <div className="app">
       <nav className="sidebar">
         <div className="logo">Daylo</div>
+        <div className="logo-strip" />
         {navItems.map((item) => (
           <button
             key={item.id}
@@ -78,6 +84,14 @@ export default function App() {
           </div>
         )}
         {updateError && <span className="error upd-err">{updateError}</span>}
+        {account && (
+          <div className="acc-chip">
+            <span className={account.mode === 'ely' ? 'acc-dot ely' : 'acc-dot'} />
+            <span className="name">{account.name}</span>
+            <span className="mode">{account.mode === 'ely' ? 'ely.by' : 'офлайн'}</span>
+          </div>
+        )}
+        {ver && <div className="side-ver">v{ver}</div>}
       </nav>
       <main className="content">
         {screen === 'play' && <Play />}
