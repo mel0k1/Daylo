@@ -8,10 +8,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from 'pixel-retroui'
-import { listVersions, modrinthSearch, modrinthVersions, modrinthInstall, modsList, modsDelete, modsUpdates, modsUpdate, type VersionEntry, type SearchHit, type ModVersion, type ModUpdate } from '../ipc/commands'
+import { listVersions, modrinthSearch, modrinthVersions, modrinthInstall, curseforgeSearch, curseforgeVersions, curseforgeInstall, modsList, modsDelete, modsUpdates, modsUpdate, type VersionEntry, type SearchHit, type ModVersion, type ModUpdate } from '../ipc/commands'
 import { hasTauri } from '../ipc/tauri'
 
 type View = 'mine' | 'catalog'
+type Source = 'modrinth' | 'curseforge'
 
 function fmtDownloads(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -23,6 +24,7 @@ export function Mods() {
   const [versions, setVersions] = useState<VersionEntry[]>([])
   const [instance, setInstance] = useState(localStorage.getItem('daylo.mods.version') ?? '')
   const [view, setView] = useState<View>('mine')
+  const [src, setSrc] = useState<Source>('modrinth')
   const [query, setQuery] = useState('')
   const [hits, setHits] = useState<SearchHit[]>([])
   const [picked, setPicked] = useState<SearchHit | null>(null)
@@ -108,7 +110,11 @@ export function Mods() {
     setPicked(null)
     setModVersions([])
     try {
-      setHits(await modrinthSearch(query.trim(), instance))
+      setHits(
+        src === 'modrinth'
+          ? await modrinthSearch(query.trim(), instance)
+          : await curseforgeSearch(query.trim(), instance),
+      )
       if (!instance) setError('выберите версию игры, чтобы отфильтровать совместимые моды')
     } catch (e) {
       setError(String(e))
@@ -124,7 +130,11 @@ export function Mods() {
     setBusy(`mod:${hit.project_id}`)
     setError('')
     try {
-      setModVersions(await modrinthVersions(hit.project_id, instance))
+      setModVersions(
+        src === 'modrinth'
+          ? await modrinthVersions(hit.project_id, instance)
+          : await curseforgeVersions(hit.project_id, instance),
+      )
     } catch (e) {
       setError(String(e))
     } finally {
@@ -137,7 +147,11 @@ export function Mods() {
     setBusy(`install:${mv.version_id}`)
     setError('')
     try {
-      await modrinthInstall(instance, mv.version_id)
+      if (src === 'modrinth') {
+        await modrinthInstall(instance, mv.version_id)
+      } else if (picked) {
+        await curseforgeInstall(instance, picked.project_id, mv.version_id)
+      }
       refreshInstalled(instance)
     } catch (e) {
       setError(String(e))
@@ -189,7 +203,7 @@ export function Mods() {
             className={view === 'catalog' ? 'tab on' : 'tab'}
             onClick={() => setView('catalog')}
           >
-            Каталог Modrinth
+            Каталог
           </button>
         </div>
       </div>
@@ -219,7 +233,7 @@ export function Mods() {
               <p className="muted">
                 В сборке {instance || '—'} пока нет модов.
                 <br />
-                Загляни в «Каталог Modrinth» — там их тысячи.
+                Загляни в «Каталог» — Modrinth и CurseForge под рукой.
               </p>
               <Button onClick={() => setView('catalog')}>Открыть каталог</Button>
             </div>
@@ -262,13 +276,35 @@ export function Mods() {
       {view === 'catalog' && (
         <>
           <Card className="mods-search">
+            <div className="tabs source-tabs">
+              <button
+                className={src === 'modrinth' ? 'tab on' : 'tab'}
+                onClick={() => {
+                  setSrc('modrinth')
+                  setPicked(null)
+                  setModVersions([])
+                }}
+              >
+                Modrinth
+              </button>
+              <button
+                className={src === 'curseforge' ? 'tab on' : 'tab'}
+                onClick={() => {
+                  setSrc('curseforge')
+                  setPicked(null)
+                  setModVersions([])
+                }}
+              >
+                CurseForge
+              </button>
+            </div>
             <div className="play-row">
               <Input
                 className="mods-query"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && void search()}
-                placeholder="Поиск на Modrinth…"
+                placeholder={src === 'modrinth' ? 'Поиск на Modrinth…' : 'Поиск на CurseForge…'}
               />
               {instancePicker}
               <Button onClick={() => void search()} disabled={!online || busy === 'search'}>

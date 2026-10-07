@@ -6,6 +6,7 @@ import {
   saveInstanceConfig,
   getLauncherSettings,
   setMirrors,
+  setCfKey,
   packExport,
   packImport,
   type VersionEntry,
@@ -78,15 +79,21 @@ function AccountCard() {
   )
 }
 
-// Зеркало BMCLAPI ускоряет библиотеки и ассеты из России
+// Зеркало BMCLAPI ускоряет библиотеки и ассеты из России;
+// ключ CurseForge включает официальный API вместо зеркала
 function MirrorsCard() {
   const [on, setOn] = useState(true)
   const [saved, setSaved] = useState(false)
+  const [cfKey, setCfKeyState] = useState('')
+  const [cfSaved, setCfSaved] = useState(false)
 
   useEffect(() => {
     if (!hasTauri()) return
     void getLauncherSettings()
-      .then((s) => setOn(s.use_mirrors))
+      .then((s) => {
+        setOn(s.use_mirrors)
+        setCfKeyState(s.cf_api_key ?? '')
+      })
       .catch(() => {})
   }, [])
 
@@ -102,6 +109,16 @@ function MirrorsCard() {
     }
   }
 
+  const saveKey = async () => {
+    try {
+      await setCfKey(cfKey)
+      setCfSaved(true)
+      setTimeout(() => setCfSaved(false), 1500)
+    } catch {
+      // ключ опционален: сбой сохранения не критичен
+    }
+  }
+
   return (
     <Card className="play-card">
       <h2 className="retro-title">Загрузки</h2>
@@ -112,6 +129,21 @@ function MirrorsCard() {
       <p className="muted mirrors-note">
         Оригинальные серверы Mojang и maven остаются запасным путём: если зеркало молчит, качаем
         напрямую. {saved && 'Сохранено.'}
+      </p>
+      <div className="play-row">
+        <Input
+          className="mods-query"
+          value={cfKey}
+          onChange={(e) => setCfKeyState(e.target.value)}
+          placeholder="Ключ API CurseForge (необязательно)"
+        />
+        <Button onClick={() => void saveKey()} disabled={!hasTauri()}>
+          {cfSaved ? 'Сохранено' : 'Применить'}
+        </Button>
+      </div>
+      <p className="muted mirrors-note">
+        Моды и сборки CurseForge идут через публичное зеркало. Свой ключ включает официальный API,
+        если зеркало недоступно.
       </p>
     </Card>
   )

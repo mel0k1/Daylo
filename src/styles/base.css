@@ -1153,3 +1153,39 @@ button {
   outline: 2px solid var(--accent-bright);
   outline-offset: 1px;
 }
+
+/* Каталог сборок и список установленных */
+.source-tabs {
+  margin-bottom: 10px;
+}
+
+.pack-card {
+  gap: 8px;
+}
+
+.pack-card .mod-head {
+  cursor: default;
+}
+
+.pack-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pack-badge {
+  padding: 2px 8px;
+  border: 2px solid #3a4048;
+  background: var(--bg-inset);
+  color: var(--text-dim);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pack-progress {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useUi } from './state/ui'
 import { useAccount } from './state/account'
 import { Play } from './screens/Play'
+import { Packs } from './screens/Packs'
 import { Mods } from './screens/Mods'
 import { Shots } from './screens/Shots'
 import { Settings } from './screens/Settings'
@@ -9,8 +10,9 @@ import { hasTauri } from './ipc/tauri'
 import { appInfo, updateInstall, updateCheck, type UpdateInfo } from './ipc/commands'
 import { onUpdateProgress, type UpdateProgress } from './ipc/events'
 
-const navItems: { id: 'play' | 'mods' | 'shots' | 'settings'; label: string }[] = [
+const navItems: { id: 'play' | 'packs' | 'mods' | 'shots' | 'settings'; label: string }[] = [
   { id: 'play', label: 'Играть' },
+  { id: 'packs', label: 'Сборки' },
   { id: 'mods', label: 'Моды' },
   { id: 'shots', label: 'Скриншоты' },
   { id: 'settings', label: 'Настройки' },
@@ -95,6 +97,7 @@ export default function App() {
       </nav>
       <main className="content">
         {screen === 'play' && <Play />}
+        {screen === 'packs' && <Packs />}
         {screen === 'mods' && <Mods />}
         {screen === 'shots' && <Shots />}
         {screen === 'settings' && <Settings />}

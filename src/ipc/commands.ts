@@ -134,6 +134,7 @@ export interface AccountInfo {
 
 export interface LauncherSettings {
   use_mirrors: boolean
+  cf_api_key: string | null
 }
 
 export const pingServer = (addr: string) =>
@@ -185,6 +186,67 @@ export const packExport = (version: string) =>
   invoke<string | null>('pack_export', { version })
 
 export const packImport = () => invoke<string | null>('pack_import')
+
+// --- Каталог сборок: Modrinth / CurseForge / FTB ---
+
+export interface PackHit {
+  source: string
+  id: string
+  slug: string
+  title: string
+  description: string
+  icon_url: string
+  downloads: number
+}
+
+export interface PackVersionInfo {
+  version_id: string
+  name: string
+  date: string
+  mc_versions: string[]
+  loaders: string[]
+}
+
+export interface InstanceInfo {
+  id: string
+  kind: string
+  name: string
+  mc_version: string
+  loader: string
+  launch_version: string
+  source: string
+  pack_version: string
+  icon_url: string
+  ram_mb: number
+  mods_count: number
+}
+
+export const packSearch = (source: string, query: string, gameVersion: string) =>
+  invoke<PackHit[]>('pack_search', { source, query, gameVersion })
+
+export const packVersions = (source: string, packId: string, gameVersion: string) =>
+  invoke<PackVersionInfo[]>('pack_versions', { source, packId, gameVersion })
+
+export const packInstall = (source: string, packId: string, versionId: string, icon: string) =>
+  invoke<void>('pack_install', { source, packId, versionId, icon })
+
+export const instanceList = () => invoke<InstanceInfo[]>('instance_list')
+
+export const instanceDelete = (id: string) => invoke<void>('instance_delete', { id })
+
+export const launchInstance = (instance: string, nick: string) =>
+  invoke<void>('launch_instance', { instance, nick })
+
+export const curseforgeSearch = (query: string, gameVersion: string) =>
+  invoke<SearchHit[]>('curseforge_search', { query, gameVersion })
+
+export const curseforgeVersions = (modId: string, gameVersion: string) =>
+  invoke<ModVersion[]>('curseforge_versions', { modId, gameVersion })
+
+export const curseforgeInstall = (version: string, modId: string, fileId: string) =>
+  invoke<void>('curseforge_install', { version, modId, fileId })
+
+export const setCfKey = (key: string) => invoke<void>('set_cf_key', { key })
 
 export interface Shot {
   name: string

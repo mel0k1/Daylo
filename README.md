@@ -3,6 +3,9 @@
 Лаунчер Minecraft для Windows, macOS и Linux: ядро на Rust, интерфейс на React.
 Игра, библиотеки и Java скачиваются сами, аккаунт не обязателен.
 
+Готовые сборки и моды ставятся из каталогов Modrinth, CurseForge и FTB,
+загрузчики Fabric, Quilt, Forge и NeoForge поддерживаются.
+
 ## Стек
 
 - Ядро — Rust + Tauri 2

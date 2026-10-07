@@ -78,3 +78,11 @@ export const onPackProgress = (fn: (p: PackProgress) => void): Promise<UnlistenF
 
 export const onPackImported = (fn: (p: PackImported) => void): Promise<UnlistenFn> =>
   listen<PackImported>('pack-imported', (e) => fn(e.payload))
+
+export interface PackInstalled {
+  instance: string
+  error: string | null
+}
+
+export const onPackInstalled = (fn: (p: PackInstalled) => void): Promise<UnlistenFn> =>
+  listen<PackInstalled>('pack-installed', (e) => fn(e.payload))
