@@ -16,6 +16,7 @@ import { installLoader, loaderBuilds, skinSave, skinDelete, type LoaderBuild } f
 import { SkinView } from '../components/SkinView'
 import { Servers } from '../components/Servers'
 import { CrashModal } from '../components/CrashModal'
+import { News } from '../components/News'
 
 type Tab = 'vanilla' | 'fabric' | 'forge' | 'neoforge'
 
@@ -277,6 +278,7 @@ export function Play() {
           </p>
         </Card>
         <Servers version={version} />
+        <News />
       </div>
 
       {crash && <CrashModal info={crash} onClose={dropCrash} />}
