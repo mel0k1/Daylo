@@ -25,7 +25,5 @@ pub async fn set_mirrors(enabled: bool) -> Result<(), String> {
 #[tauri::command]
 pub async fn set_cf_key(key: String) -> Result<(), String> {
     let key = key.trim().to_string();
-    engine::core::settings::update(|s| {
-        s.cf_api_key = if key.is_empty() { None } else { Some(key) }
-    })
+    engine::core::settings::update(|s| s.cf_api_key = if key.is_empty() { None } else { Some(key) })
 }

@@ -17,8 +17,7 @@ pub struct FtbFile {
 
 async fn get_json(url: &str) -> Result<Value, String> {
     let body = http::text(url).await?;
-    let v: Value =
-        serde_json::from_str(&body).map_err(|e| format!("ответ FTB: {e}"))?;
+    let v: Value = serde_json::from_str(&body).map_err(|e| format!("ответ FTB: {e}"))?;
     if v["status"].as_str() == Some("error") {
         return Err(format!(
             "FTB: {}",
@@ -59,7 +58,11 @@ async fn catalog() -> Result<Vec<PackHit>, String> {
     let cache = paths::data_dir().join("cache").join("ftb-catalog.json");
     if let Ok(meta) = std::fs::metadata(&cache) {
         if let Ok(age) = meta.modified() {
-            if age.elapsed().map(|d| d.as_secs() < CACHE_HOURS * 3600).unwrap_or(false) {
+            if age
+                .elapsed()
+                .map(|d| d.as_secs() < CACHE_HOURS * 3600)
+                .unwrap_or(false)
+            {
                 if let Ok(body) = std::fs::read_to_string(&cache) {
                     if let Ok(hits) = serde_json::from_str::<Vec<PackHit>>(&body) {
                         if !hits.is_empty() {
@@ -139,7 +142,10 @@ pub async fn versions(pack_id: &str) -> Result<Vec<PackVersionInfo>, String> {
         .map(|ver| {
             let (mc, loader) = parse_targets(ver);
             PackVersionInfo {
-                version_id: ver["id"].as_u64().map(|i| i.to_string()).unwrap_or_default(),
+                version_id: ver["id"]
+                    .as_u64()
+                    .map(|i| i.to_string())
+                    .unwrap_or_default(),
                 name: ver["name"].as_str().unwrap_or_default().to_string(),
                 date: ver["updated"].as_u64().unwrap_or(0).to_string(),
                 mc_versions: if mc.is_empty() { Vec::new() } else { vec![mc] },

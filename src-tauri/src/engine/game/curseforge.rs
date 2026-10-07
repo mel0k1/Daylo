@@ -100,10 +100,7 @@ async fn post_json(path: &str, body: &Value) -> Result<Value, String> {
 }
 
 fn clean_query<'a>(q: &[(&'a str, &'a str)]) -> Vec<(&'a str, &'a str)> {
-    q.iter()
-        .filter(|(_, v)| !v.is_empty())
-        .copied()
-        .collect()
+    q.iter().filter(|(_, v)| !v.is_empty()).copied().collect()
 }
 
 fn query_string<'a>(q: &[(&'a str, &'a str)]) -> String {
@@ -190,7 +187,12 @@ fn parse_file(f: &Value) -> Option<CfFile> {
 pub fn file_url(file: &CfFile) -> String {
     let id: u64 = file.file_id.parse().unwrap_or(0);
     let enc_name = modrinth::enc(&file.file_name);
-    format!("https://edge.forgecdn.net/files/{}/{}/{}", id / 1000, id % 1000, enc_name)
+    format!(
+        "https://edge.forgecdn.net/files/{}/{}/{}",
+        id / 1000,
+        id % 1000,
+        enc_name
+    )
 }
 
 // Файлы проекта; модпаки и моды живут на одном эндпоинте
@@ -217,7 +219,14 @@ pub async fn install_mod(instance: &str, mod_id: &str, file_id: &str) -> Result<
     let file = file_meta(mod_id, file_id).await?;
     let url = file_url(&file);
     let mods = super::super::core::paths::instance_dir(instance).join("mods");
-    http::download(&url, &mods.join(&file.file_name), file.sha1.as_deref(), None, None).await?;
+    http::download(
+        &url,
+        &mods.join(&file.file_name),
+        file.sha1.as_deref(),
+        None,
+        None,
+    )
+    .await?;
     modrinth::track(
         instance,
         modrinth::ModMeta {

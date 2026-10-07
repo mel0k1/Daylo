@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use futures::StreamExt;
 use serde::Serialize;
@@ -211,7 +211,10 @@ fn dep_loader(deps: &serde_json::Value, key: &str, tag: &str) -> Option<(String,
 }
 
 // manifest.json из zip CurseForge; отдельный список id файлов — их url узнаём пачкой
-fn parse_cf_manifest(manifest: &str, icon: &str) -> Result<(PackPlan, Vec<(String, String)>), String> {
+fn parse_cf_manifest(
+    manifest: &str,
+    icon: &str,
+) -> Result<(PackPlan, Vec<(String, String)>), String> {
     let v: serde_json::Value =
         serde_json::from_str(manifest).map_err(|e| format!("разбор manifest.json: {e}"))?;
     let mc = v["minecraft"]["version"]
@@ -227,7 +230,11 @@ fn parse_cf_manifest(manifest: &str, icon: &str) -> Result<(PackPlan, Vec<(Strin
         .unwrap_or_default()
         .iter()
         .find(|l| l["primary"].as_bool().unwrap_or(false))
-        .or_else(|| v["minecraft"]["modLoaders"].as_array().and_then(|a| a.first()))
+        .or_else(|| {
+            v["minecraft"]["modLoaders"]
+                .as_array()
+                .and_then(|a| a.first())
+        })
         .and_then(|l| l["id"].as_str())
         .and_then(|id| id.split_once('-'))
         .map(|(tag, build)| (tag.to_lowercase(), build.to_string()));
@@ -250,7 +257,10 @@ fn parse_cf_manifest(manifest: &str, icon: &str) -> Result<(PackPlan, Vec<(Strin
         .collect();
     let plan = PackPlan {
         instance: String::new(),
-        name: v["name"].as_str().unwrap_or("CurseForge сборка").to_string(),
+        name: v["name"]
+            .as_str()
+            .unwrap_or("CurseForge сборка")
+            .to_string(),
         mc_version: mc,
         loader,
         icon_url: icon.to_string(),
@@ -352,10 +362,7 @@ pub async fn install(
             SOURCE_MR => run_modrinth(app.clone(), &pack_id, &version_id, &icon).await,
             SOURCE_CF => run_curseforge(app.clone(), &pack_id, &version_id, &icon).await,
             SOURCE_FTB => run_ftb(app.clone(), &pack_id, &version_id).await,
-            other => Err((
-                String::new(),
-                format!("неизвестный источник {other}"),
-            )),
+            other => Err((String::new(), format!("неизвестный источник {other}"))),
         };
         match outcome {
             Ok(instance) => {
@@ -422,7 +429,10 @@ async fn run_modrinth(
         .ok_or_else(|| early("у версии сборки нет файлов".into()))?;
 
     emit(&app, "загрузка архива", 0, 1);
-    let archive = paths::data_dir().join("cache").join("packs").join(&file.filename);
+    let archive = paths::data_dir()
+        .join("cache")
+        .join("packs")
+        .join(&file.filename);
     http::download(
         &file.url,
         &archive,
@@ -451,7 +461,9 @@ async fn run_curseforge(
     icon: &str,
 ) -> Result<String, (String, String)> {
     emit(&app, "разбор сборки", 0, 1);
-    let meta = curseforge::file_meta(pack_id, file_id).await.map_err(early)?;
+    let meta = curseforge::file_meta(pack_id, file_id)
+        .await
+        .map_err(early)?;
     let url = curseforge::file_url(&meta);
     let archive = paths::data_dir()
         .join("cache")
@@ -526,7 +538,11 @@ async fn run_ftb(
 
     let mut files = Vec::new();
     for f in ftb::parse_files(&detail) {
-        let rel = f.path.trim_start_matches("./").trim_matches('/').to_string();
+        let rel = f
+            .path
+            .trim_start_matches("./")
+            .trim_matches('/')
+            .to_string();
         let file_name = f.url.rsplit('/').next().unwrap_or("file.bin").to_string();
         let full = if rel.is_empty() {
             file_name
@@ -571,7 +587,8 @@ async fn execute(app: tauri::AppHandle, plan: PackPlan) -> Result<String, (Strin
 
     if !plan.archive.as_os_str().is_empty() {
         emit(&app, "распаковка", 0, 1);
-        extract_prefix(&plan.archive, "overrides/", &instance_dir).map_err(|e| late(&instance, e))?;
+        extract_prefix(&plan.archive, "overrides/", &instance_dir)
+            .map_err(|e| late(&instance, e))?;
     }
 
     let total = plan.files.len() as u64;
@@ -605,11 +622,10 @@ async fn execute(app: tauri::AppHandle, plan: PackPlan) -> Result<String, (Strin
             }
         }
         if !errors.is_empty() {
-            return Err(late(&instance, format!(
-                "файлов не скачалось: {}; {}",
-                errors.len(),
-                errors[0]
-            )));
+            return Err(late(
+                &instance,
+                format!("файлов не скачалось: {}; {}", errors.len(), errors[0]),
+            ));
         }
     }
 
@@ -645,6 +661,8 @@ async fn execute(app: tauri::AppHandle, plan: PackPlan) -> Result<String, (Strin
         pack_version: plan.pack_version.clone(),
         icon_url: plan.icon_url.clone(),
     };
-    config::write(&plan.instance, &cfg).await.map_err(|e| late(&instance, e))?;
+    config::write(&plan.instance, &cfg)
+        .await
+        .map_err(|e| late(&instance, e))?;
     Ok(instance)
 }

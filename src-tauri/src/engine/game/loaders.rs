@@ -200,10 +200,10 @@ async fn quilt_builds(mc: &str) -> Result<Vec<LoaderBuild>, String> {
             })
         })
         .collect();
-    if let Some(i) = out
-        .iter()
-        .position(|b| b.stable)
-        .or(if out.is_empty() { None } else { Some(0) })
+    if let Some(i) =
+        out.iter()
+            .position(|b| b.stable)
+            .or(if out.is_empty() { None } else { Some(0) })
     {
         out[i].recommended = true;
     }

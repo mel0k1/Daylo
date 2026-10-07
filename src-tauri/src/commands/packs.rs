@@ -94,7 +94,11 @@ pub async fn instance_list() -> Vec<InstanceInfo> {
         };
         out.push(InstanceInfo {
             id,
-            kind: if cfg.kind.is_empty() { "vanilla".into() } else { cfg.kind },
+            kind: if cfg.kind.is_empty() {
+                "vanilla".into()
+            } else {
+                cfg.kind
+            },
             name,
             mc_version,
             loader: loader.to_string(),
