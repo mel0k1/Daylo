@@ -19,7 +19,7 @@
   --text-dropdown: #e6e8eb;
   --border-dropdown: #3a4048;
   --shadow-dropdown: #0a0c10;
-  --bg-dropdown-hover: #22262e;
+  --bg-dropdown-hover: var(--bg-hover);
   --color-progressbar: #2b3fbd;
   --border-progressbar: #0a0c10;
 
@@ -37,6 +37,11 @@
   --text-dim: #b7bcc4;
   --muted: #8a919c;
   --ink: #0a0c10;
+  /* Состояния и семантика: ховер, успех, ошибка, ссылки */
+  --bg-hover: #22262e;
+  --ok: #6fbf83;
+  --danger: #e5636f;
+  --link: #7d9bff;
 
   --font-pixel: 'Press Start 2P', 'Pixelify Sans', monospace;
   --font-ui: 'Pixelify Sans', system-ui, sans-serif;
@@ -80,6 +85,10 @@
   background: var(--accent-bright);
 }
 
+*::-webkit-scrollbar-corner {
+  background: var(--ink);
+}
+
 body {
   background-color: var(--bg-page);
   /* Едва заметная пиксельная сетка вместо плоского фона */
@@ -111,7 +120,7 @@ body {
 
 .logo {
   font-family: var(--font-pixel);
-  font-size: 17px;
+  font-size: 18px;
   color: #fff;
   text-shadow: 3px 3px 0 var(--ink);
   padding: 2px 8px 6px;
@@ -170,7 +179,7 @@ body {
 }
 
 .nav:hover {
-  background: #22262e;
+  background: var(--bg-hover);
   color: var(--text);
 }
 
@@ -216,7 +225,7 @@ body {
 }
 
 .acc-dot.ely {
-  background: #6fbf83;
+  background: var(--ok);
 }
 
 .side-ver {
@@ -243,14 +252,14 @@ body {
 
 .retro-title {
   font-family: var(--font-pixel);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 400;
   color: #fff;
   text-shadow: 2px 2px 0 var(--ink);
 }
 
 h1.retro-title {
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .play-card {
@@ -289,7 +298,7 @@ h1.retro-title {
 }
 
 .error {
-  color: #e5636f;
+  color: var(--danger);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -357,7 +366,7 @@ button {
 }
 
 .mod-icon.empty {
-  background: #22262e;
+  background: var(--bg-hover);
 }
 
 .mod-title {
@@ -432,7 +441,7 @@ button {
 
 .mods-update-hint {
   font-size: 13px;
-  color: #6fbf83;
+  color: var(--ok);
 }
 
 .mods-row-actions {
@@ -474,12 +483,23 @@ button {
 .link-btn {
   border: 0;
   background: none;
-  color: #7d9bff;
+  color: var(--link);
   cursor: pointer;
   font: inherit;
   font-size: 14px;
   padding: 0;
   text-decoration: underline;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
 }
 
 .link-btn:disabled {
@@ -557,7 +577,7 @@ button {
 }
 
 .tab:hover {
-  background: #22262e;
+  background: var(--bg-hover);
   color: var(--text);
 }
 
@@ -718,7 +738,7 @@ button {
 }
 
 .skin-buttons:hover > span {
-  background: #22262e;
+  background: var(--bg-hover);
 }
 
 .skin-note {
@@ -804,7 +824,7 @@ button {
 }
 
 .srv-icon.empty {
-  background: #22262e;
+  background: var(--bg-hover);
 }
 
 .srv-info {
@@ -826,7 +846,7 @@ button {
 }
 
 .srv-down {
-  color: #e5636f;
+  color: var(--danger);
 }
 
 .srv-del {
@@ -840,7 +860,7 @@ button {
 }
 
 .srv-del:hover {
-  color: #e5636f;
+  color: var(--danger);
 }
 
 .srv-game {
@@ -892,7 +912,7 @@ button {
 }
 
 .ely-link {
-  color: #7d9bff;
+  color: var(--link);
   word-break: break-all;
   align-self: center;
 }
@@ -1108,7 +1128,7 @@ button {
 }
 
 .shot-img.empty {
-  background: #22262e;
+  background: var(--bg-hover);
 }
 
 .shot-name {
