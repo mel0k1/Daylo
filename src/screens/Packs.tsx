@@ -22,7 +22,7 @@ import {
   type PackVersionInfo,
   type InstanceInfo,
 } from '../ipc/commands'
-import { onPackProgress, onPackInstalled, type PackProgress } from '../ipc/events'
+import { onPackProgress, onPackInstalled, onGameExit, type PackProgress } from '../ipc/events'
 import { useGame } from '../state/game'
 import { useAccount } from '../state/account'
 import { hasTauri } from '../ipc/tauri'
@@ -104,6 +104,8 @@ export function Packs() {
         setView('mine')
       }
     })
+    // Игра может быть запущена отсюда; по выходу сбрасываем «игра запущена»
+    void onGameExit(() => setStage(''))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

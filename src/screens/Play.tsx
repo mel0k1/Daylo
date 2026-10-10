@@ -15,7 +15,6 @@ import { hasTauri } from '../ipc/tauri'
 import { installLoader, loaderBuilds, skinSave, skinDelete, type LoaderBuild } from '../ipc/commands'
 import { SkinView } from '../components/SkinView'
 import { Servers } from '../components/Servers'
-import { CrashModal } from '../components/CrashModal'
 import { News } from '../components/News'
 
 type Tab = 'vanilla' | 'fabric' | 'forge' | 'neoforge'
@@ -38,8 +37,6 @@ export function Play() {
     playing,
     logs,
     error,
-    crash,
-    dropCrash,
     init,
     setVersion,
     setNick,
@@ -280,8 +277,6 @@ export function Play() {
         <Servers version={version} />
         <News />
       </div>
-
-      {crash && <CrashModal info={crash} onClose={dropCrash} />}
     </div>
   )
 }

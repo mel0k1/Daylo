@@ -25,6 +25,7 @@ export interface GameExit {
 }
 
 export interface CrashInfo {
+  instance: string
   title: string
   reason: string
   advice: string[]

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useUi } from './state/ui'
 import { useAccount } from './state/account'
+import { useGame } from './state/game'
 import { Play } from './screens/Play'
 import { Packs } from './screens/Packs'
 import { Mods } from './screens/Mods'
@@ -9,6 +10,7 @@ import { Settings } from './screens/Settings'
 import { hasTauri } from './ipc/tauri'
 import { appInfo, updateInstall, updateCheck, type UpdateInfo } from './ipc/commands'
 import { onUpdateProgress, type UpdateProgress } from './ipc/events'
+import { CrashModal } from './components/CrashModal'
 
 const navItems: { id: 'play' | 'packs' | 'mods' | 'shots' | 'settings'; label: string }[] = [
   { id: 'play', label: 'Играть' },
@@ -25,6 +27,10 @@ export default function App() {
   const [updateError, setUpdateError] = useState('')
   const [ver, setVer] = useState('')
   const account = useAccount((s) => s.info)
+  // Краш-модал на уровне приложения: краш виден с любого экрана,
+  // игра может быть запущена из «Сборок», а не только из «Играть»
+  const crash = useGame((s) => s.crash)
+  const dropCrash = useGame((s) => s.dropCrash)
 
   useEffect(() => {
     void useAccount.getState().init()
@@ -102,6 +108,7 @@ export default function App() {
         {screen === 'shots' && <Shots />}
         {screen === 'settings' && <Settings />}
       </main>
+      {crash && <CrashModal info={crash} onClose={dropCrash} />}
     </div>
   )
 }

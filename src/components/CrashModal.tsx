@@ -6,6 +6,7 @@ export function CrashModal({ info, onClose }: { info: CrashInfo; onClose: () => 
     <div className="modal-backdrop" onClick={onClose}>
       <div className="crash-modal" onClick={(e) => e.stopPropagation()}>
         <h2 className="retro-title">Игра упала</h2>
+        {info.instance && <p className="muted crash-instance">Сборка: {info.instance}</p>}
         <h3 className="crash-cause">{info.title}</h3>
         <p className="crash-reason">{info.reason}</p>
         {info.advice.length > 0 && (

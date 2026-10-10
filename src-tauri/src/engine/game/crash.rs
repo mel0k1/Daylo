@@ -4,6 +4,8 @@ use super::super::core::paths;
 
 #[derive(Serialize, Clone)]
 pub struct CrashInfo {
+    // Сборка, в которой случился краш: модал показывается на любом экране
+    pub instance: String,
     pub title: String,
     pub reason: String,
     pub advice: Vec<String>,
@@ -34,6 +36,7 @@ pub async fn analyze(version: &str, exit_code: Option<i32>) -> Option<CrashInfo>
         ),
     };
     Some(CrashInfo {
+        instance: version.to_string(),
         title,
         reason,
         advice,
