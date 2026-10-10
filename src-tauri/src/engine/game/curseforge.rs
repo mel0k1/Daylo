@@ -331,7 +331,12 @@ pub async fn latest_file(mod_id: &str, game_version: &str) -> Option<CfFile> {
 }
 
 // Обновление CF-мода: свежий файл ставится, прежний убирается
-pub async fn replace_mod(instance: &str, mod_id: &str, file_id: &str, old_file: &str) -> Result<(), String> {
+pub async fn replace_mod(
+    instance: &str,
+    mod_id: &str,
+    file_id: &str,
+    old_file: &str,
+) -> Result<(), String> {
     install_mod(instance, mod_id, file_id).await?;
     modrinth::uninstall(instance, old_file).await
 }

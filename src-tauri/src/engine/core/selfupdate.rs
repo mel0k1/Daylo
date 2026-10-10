@@ -7,6 +7,30 @@ use super::paths;
 
 const API: &str = "https://api.github.com/repos/mel0k1/Daylo/releases/latest";
 
+// GitHub из России часто режется или качается килобайтами: известные прокси
+// идут первыми, прямой путь остаётся запасным. Живость проверяется curl'ом
+// (206 на Range-запрос реального ассета).
+pub fn gh_routes(url: &str) -> Vec<String> {
+    const PROXIES: [&str; 3] = [
+        "https://gh-proxy.com/",
+        "https://ghproxy.net/",
+        "https://gh.llkk.cc/",
+    ];
+    let github = [
+        "https://github.com/",
+        "https://objects.githubusercontent.com/",
+        "https://raw.githubusercontent.com/",
+    ]
+    .iter()
+    .any(|h| url.starts_with(h));
+    if !github {
+        return vec![url.to_string()];
+    }
+    let mut out: Vec<String> = PROXIES.iter().map(|p| format!("{p}{url}")).collect();
+    out.push(url.to_string());
+    out
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct UpdateInfo {
     pub version: String,
@@ -107,7 +131,8 @@ pub async fn check() -> Result<Option<UpdateInfo>, String> {
     }))
 }
 
-// Скачивает установщик с прогрессом и запускает его
+// Скачивает установщик по маршрутам «прокси → напрямую» и запускает его.
+// Установщик стартует только после удачного скачивания.
 pub async fn install(app: &tauri::AppHandle, info: &UpdateInfo) -> Result<(), String> {
     let dir = paths::data_dir().join("update");
     tokio::fs::create_dir_all(&dir)
@@ -120,6 +145,22 @@ pub async fn install(app: &tauri::AppHandle, info: &UpdateInfo) -> Result<(), St
 }
 
 async fn download(
+    app: &tauri::AppHandle,
+    url: &str,
+    to: &PathBuf,
+    total: u64,
+) -> Result<(), String> {
+    let mut last = String::new();
+    for route in gh_routes(url) {
+        match download_once(app, &route, to, total).await {
+            Ok(()) => return Ok(()),
+            Err(e) => last = e,
+        }
+    }
+    Err(last)
+}
+
+async fn download_once(
     app: &tauri::AppHandle,
     url: &str,
     to: &PathBuf,
@@ -265,5 +306,35 @@ mod tests {
     fn newer_ignores_garbage() {
         assert!(newer("0.1.0", "0.2.0-beta"));
         assert!(!newer("abc", "abc"));
+    }
+
+    #[test]
+    fn gh_routes_proxy_first() {
+        let asset =
+            "https://github.com/mel0k1/Daylo/releases/download/v0.1.0/Daylo_0.1.0_x64-setup.exe";
+        let routes = gh_routes(asset);
+        assert_eq!(routes.len(), 4);
+        assert_eq!(routes[0], format!("https://gh-proxy.com/{asset}"));
+        assert_eq!(routes[1], format!("https://ghproxy.net/{asset}"));
+        assert_eq!(routes[2], format!("https://gh.llkk.cc/{asset}"));
+        assert_eq!(routes[3], asset);
+        // CDN объектов и raw тоже идут через прокси
+        assert_eq!(
+            gh_routes("https://objects.githubusercontent.com/x").len(),
+            4
+        );
+        assert_eq!(
+            gh_routes("https://raw.githubusercontent.com/mel0k1/Daylo/main/README.md").len(),
+            4
+        );
+        // Чужие хосты и подделки в пути не трогаем
+        assert_eq!(
+            gh_routes("https://example.com/file.exe"),
+            vec!["https://example.com/file.exe"]
+        );
+        assert_eq!(
+            gh_routes("https://evil.example/https://github.com/x"),
+            vec!["https://evil.example/https://github.com/x"]
+        );
     }
 }

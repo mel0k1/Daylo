@@ -127,9 +127,7 @@ fn xerr_message(xerr: i64) -> String {
     match xerr {
         2148916233 => "у этого аккаунта Microsoft нет профиля Xbox".into(),
         2148916235 => "Xbox Live недоступен в вашей стране".into(),
-        2148916236 | 2148916237 => {
-            "детский аккаунт — добавьте его в семейную группу Xbox".into()
-        }
+        2148916236 | 2148916237 => "детский аккаунт — добавьте его в семейную группу Xbox".into(),
         2148916238 => "подтвердите возраст аккаунта на xbox.com".into(),
         _ => format!("Xbox отказал во входе (код {xerr})"),
     }
@@ -186,7 +184,10 @@ async fn xsts_chain(msa_token: &str) -> Result<(String, String), String> {
 }
 
 // Обмен XSTS-токена на токен Minecraft и профиль
-async fn minecraft_account(xsts: &(String, String), refresh_token: String) -> Result<Account, String> {
+async fn minecraft_account(
+    xsts: &(String, String),
+    refresh_token: String,
+) -> Result<Account, String> {
     let mc = post_json(
         MC_LOGIN_URL,
         serde_json::json!({
