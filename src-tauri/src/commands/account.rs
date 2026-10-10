@@ -5,7 +5,7 @@ use crate::engine;
 
 #[derive(Serialize)]
 pub struct AccountInfo {
-    // "ely" | "offline"
+    // "ely" | "msa" | "offline"
     pub mode: String,
     pub name: String,
     pub uuid: String,
@@ -15,7 +15,7 @@ pub struct AccountInfo {
 pub async fn account_info() -> AccountInfo {
     match engine::core::ely::current_account().await {
         Some(a) => AccountInfo {
-            mode: "ely".into(),
+            mode: if a.provider == "msa" { "msa".into() } else { "ely".into() },
             name: a.name,
             uuid: a.uuid,
         },
@@ -24,6 +24,19 @@ pub async fn account_info() -> AccountInfo {
             name: String::new(),
             uuid: String::new(),
         },
+    }
+}
+
+// Текущий провайдер определяет, чем обновлять токен; без аккаунта — оффлайн
+async fn live_account() -> Option<engine::core::settings::Account> {
+    let provider = engine::core::settings::load()
+        .account
+        .map(|a| a.provider)
+        .unwrap_or_default();
+    if provider == "msa" {
+        engine::core::msa::current_account().await
+    } else {
+        engine::core::ely::current_account().await
     }
 }
 
@@ -46,8 +59,32 @@ pub async fn ely_login_poll(device_code: String) -> Result<serde_json::Value, St
 }
 
 #[tauri::command]
+pub async fn msa_login_start() -> Result<engine::core::msa::DeviceStart, String> {
+    engine::core::msa::device_start().await
+}
+
+#[tauri::command]
+pub async fn msa_login_poll(device_code: String) -> Result<serde_json::Value, String> {
+    match engine::core::msa::device_poll(&device_code).await? {
+        engine::core::msa::Poll::Pending => Ok(json!({ "status": "pending" })),
+        engine::core::msa::Poll::Done(acc) => {
+            engine::core::settings::update(|s| s.account = Some(acc))?;
+            Ok(json!({ "status": "done" }))
+        }
+        engine::core::msa::Poll::Error(e) => Ok(json!({ "status": "error", "message": e })),
+    }
+}
+
+#[tauri::command]
 pub async fn ely_logout() -> Result<(), String> {
     engine::core::ely::logout().await
+}
+
+// Скин аккаунта Microsoft через sessionserver Mojang, base64 png
+#[tauri::command]
+pub async fn msa_skin() -> Option<String> {
+    let acc = live_account().await?;
+    engine::core::msa::skin_png(&acc.uuid).await
 }
 
 // Скин из системы скинов Ely.by, base64 png

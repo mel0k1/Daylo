@@ -4,11 +4,16 @@ import {
   elyLoginPoll,
   elyLoginStart,
   elyLogout,
+  msaLoginPoll,
+  msaLoginStart,
   type AccountInfo,
 } from '../ipc/commands'
 import { hasTauri } from '../ipc/tauri'
 
+type Provider = 'ely' | 'msa'
+
 interface LoginFlow {
+  provider: Provider
   deviceCode: string
   userCode: string
   verificationUri: string
@@ -21,7 +26,7 @@ interface AccountState {
   login: LoginFlow | null
   error: string
   init: () => Promise<void>
-  startLogin: () => Promise<void>
+  startLogin: (provider: Provider) => Promise<void>
   cancelLogin: () => void
   logout: () => Promise<void>
 }
@@ -42,13 +47,14 @@ export const useAccount = create<AccountState>((set, get) => ({
     }
   },
 
-  startLogin: async () => {
+  startLogin: async (provider) => {
     if (!hasTauri() || get().login) return
     set({ error: '' })
     try {
-      const d = await elyLoginStart()
+      const d = provider === 'msa' ? await msaLoginStart() : await elyLoginStart()
       set({
         login: {
+          provider,
           deviceCode: d.device_code,
           userCode: d.user_code,
           verificationUri: d.verification_uri,
@@ -90,7 +96,9 @@ async function pollLoop(
       return
     }
     try {
-      const r = await elyLoginPoll(login.deviceCode)
+      const r = login.provider === 'msa'
+        ? await msaLoginPoll(login.deviceCode)
+        : await elyLoginPoll(login.deviceCode)
       if (r.status === 'done') {
         set({ login: null })
         await get().init()

@@ -92,11 +92,11 @@ export default function App() {
           </div>
         )}
         {updateError && <span className="error upd-err">{updateError}</span>}
-        {account && (
+        {account && account.mode !== 'offline' && (
           <div className="acc-chip">
             <span className={account.mode === 'ely' ? 'acc-dot ely' : 'acc-dot'} />
             <span className="name">{account.name}</span>
-            <span className="mode">{account.mode === 'ely' ? 'ely.by' : 'офлайн'}</span>
+            <span className="mode">{account.mode === 'ely' ? 'ely.by' : 'Microsoft'}</span>
           </div>
         )}
         {ver && <div className="side-ver">v{ver}</div>}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { elySkin, skinLoad } from '../ipc/commands'
+import { elySkin, msaSkin, skinLoad } from '../ipc/commands'
 import { hasTauri } from '../ipc/tauri'
 import { useAccount } from '../state/account'
 
@@ -291,6 +291,15 @@ export function SkinView({ nick, refreshKey }: Props) {
         const acc = useAccount.getState().info
         if (acc?.mode === 'ely' && acc.name === name) {
           const s = await elySkin(name).catch(() => null)
+          if (s) {
+            await toTex(`data:image/png;base64,${s}`)
+              .then((t) => !dead && setTex(t))
+              .catch(() => {})
+            return
+          }
+        }
+        if (acc?.mode === 'msa' && acc.name === name) {
+          const s = await msaSkin().catch(() => null)
           if (s) {
             await toTex(`data:image/png;base64,${s}`)
               .then((t) => !dead && setTex(t))

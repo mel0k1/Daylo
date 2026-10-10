@@ -1,6 +1,7 @@
 pub mod ely;
 pub mod http;
 pub mod mirrors;
+pub mod msa;
 pub mod paths;
 pub mod selfupdate;
 pub mod settings;

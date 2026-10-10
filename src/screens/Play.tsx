@@ -51,9 +51,9 @@ export function Play() {
   const [installing, setInstalling] = useState(false)
   const [skinKey, setSkinKey] = useState(0)
   const [skinError, setSkinError] = useState('')
-  // Под аккаунтом Ely.by ник задаёт сервер авторизации, поле не редактируется
-  const elyName = useAccount((s) => (s.info?.mode === 'ely' ? s.info.name : ''))
-  const elyMode = elyName !== ''
+  // Под аккаунтом Ely.by или Microsoft ник задаёт сервер авторизации, поле не редактируется
+  const accName = useAccount((s) => (s.info && s.info.mode !== 'offline' ? s.info.name : ''))
+  const accMode = accName !== ''
 
   useEffect(() => {
     void init()
@@ -161,8 +161,8 @@ export function Play() {
           </div>
 
           <div className="play-row">
-            {elyMode ? (
-              <span className="nick ely-nick" title="Аккаунт Ely.by">{elyName}</span>
+            {accMode ? (
+              <span className="nick ely-nick" title="Аккаунт авторизован">{accName}</span>
             ) : (
               <Input
                 className="nick"
@@ -251,7 +251,7 @@ export function Play() {
       <div className="side-column">
         <Card className="skin-card">
           <h2 className="retro-title">Скин</h2>
-          <SkinView nick={elyMode ? elyName : nick} refreshKey={skinKey} />
+          <SkinView nick={accMode ? accName : nick} refreshKey={skinKey} />
           <label className="skin-buttons">
             <input
               type="file"
@@ -264,7 +264,7 @@ export function Play() {
           <Button
             bg="#a03030"
             onClick={() => void removeSkin()}
-            disabled={!elyMode && !nick.trim()}
+            disabled={!accMode && !nick.trim()}
           >
             Убрать
           </Button>

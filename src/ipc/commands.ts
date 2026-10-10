@@ -127,7 +127,7 @@ export interface PollResult {
 }
 
 export interface AccountInfo {
-  mode: 'ely' | 'offline'
+  mode: 'ely' | 'msa' | 'offline'
   name: string
   uuid: string
 }
@@ -159,6 +159,13 @@ export const elyLoginStart = () => invoke<DeviceStart>('ely_login_start')
 
 export const elyLoginPoll = (deviceCode: string) =>
   invoke<PollResult>('ely_login_poll', { deviceCode })
+
+export const msaLoginStart = () => invoke<DeviceStart>('msa_login_start')
+
+export const msaLoginPoll = (deviceCode: string) =>
+  invoke<PollResult>('msa_login_poll', { deviceCode })
+
+export const msaSkin = () => invoke<string | null>('msa_skin')
 
 export const elyLogout = () => invoke<void>('ely_logout')
 

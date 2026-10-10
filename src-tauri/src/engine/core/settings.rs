@@ -18,6 +18,9 @@ pub struct Account {
     pub refresh_token: String,
     // Момент истечения access-токена, секунды от эпохи
     pub expires_at: u64,
+    // Источник авторизации: "ely" | "msa"; в старых файлах пусто — значит ely
+    #[serde(default)]
+    pub provider: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -30,6 +33,9 @@ pub struct Settings {
     // Ключ API CurseForge для официального эндпоинта, если зеркало недоступно
     #[serde(default)]
     pub cf_api_key: Option<String>,
+    // Свой client_id приложения Microsoft (GUID), если не годится публичный
+    #[serde(default)]
+    pub msa_client_id: Option<String>,
 }
 
 impl Default for Settings {
@@ -40,6 +46,7 @@ impl Default for Settings {
             account: None,
             ely_client_id: None,
             cf_api_key: None,
+            msa_client_id: None,
         }
     }
 }
@@ -75,6 +82,16 @@ pub fn normalize_server(raw: &str) -> Option<String> {
     Some(s.to_ascii_lowercase())
 }
 
+// GUID вида 8-4-4-4-12 hex — client_id приложения Azure
+fn ok_guid(s: &str) -> bool {
+    let parts: Vec<&str> = s.split('-').collect();
+    parts.len() == 5
+        && [8, 4, 4, 4, 12]
+            .iter()
+            .zip(&parts)
+            .all(|(w, p)| p.len() == *w && p.chars().all(|c| c.is_ascii_hexdigit()))
+}
+
 pub fn load() -> Settings {
     let _g = LOCK.lock().unwrap_or_else(|e| e.into_inner());
     std::fs::read_to_string(file())
@@ -92,15 +109,27 @@ pub fn load() -> Settings {
             Settings {
                 use_mirrors: s.use_mirrors,
                 servers,
-                account: s.account.filter(|a| {
-                    !a.name.is_empty()
-                        && a.name.len() <= 16
-                        && a.uuid.len() == 36
-                        && a.access_token.len() <= MAX_TOKEN_LEN
-                        && a.refresh_token.len() <= MAX_TOKEN_LEN
-                }),
+                account: s
+                    .account
+                    .filter(|a| {
+                        !a.name.is_empty()
+                            && a.name.len() <= 16
+                            && a.uuid.len() == 36
+                            && a.access_token.len() <= MAX_TOKEN_LEN
+                            && a.refresh_token.len() <= MAX_TOKEN_LEN
+                    })
+                    .filter(|a| matches!(a.provider.as_str(), "ely" | "msa"))
+                    .map(|a| Account {
+                        provider: if a.provider.is_empty() {
+                            "ely".into()
+                        } else {
+                            a.provider
+                        },
+                        ..a
+                    }),
                 ely_client_id: s.ely_client_id.filter(|c| !c.is_empty() && c.len() <= 128),
                 cf_api_key: s.cf_api_key.filter(|c| !c.is_empty() && c.len() <= 256),
+                msa_client_id: s.msa_client_id.filter(|c| ok_guid(c)),
             }
         })
         .unwrap_or_default()
@@ -159,6 +188,7 @@ mod tests {
             access_token: "t".into(),
             refresh_token: "r".into(),
             expires_at: 1,
+            provider: "ely".into(),
         };
         assert_eq!(ok.uuid.len(), 36);
         let bad = Account {
@@ -166,5 +196,17 @@ mod tests {
             ..ok.clone()
         };
         assert!(bad.name.is_empty());
+    }
+
+    #[test]
+    fn guid_shape_is_strict() {
+        assert!(ok_guid("00000000-402b-5328-0000-000000000000"));
+        assert!(ok_guid("00000000-402B-5328-0000-000000000000"));
+        assert!(!ok_guid(""));
+        assert!(!ok_guid("не-guid"));
+        // Без дефисов и с неверной длиной сегментов не проходит
+        assert!(!ok_guid("00000000402b5328"));
+        assert!(!ok_guid("00000000-402b-5328-0000-00000000000"));
+        assert!(!ok_guid("00000000-402b-5328-0000-0000000000zz"));
     }
 }

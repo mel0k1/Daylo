@@ -28,7 +28,7 @@ pub fn client_id() -> String {
 }
 
 // percent-кодирование значения form-urlencoded
-fn enc(s: &str) -> String {
+pub fn enc(s: &str) -> String {
     let mut out = String::new();
     for b in s.as_bytes() {
         match b {
@@ -148,6 +148,7 @@ pub async fn device_poll(device_code: &str) -> Result<Poll, String> {
         access_token: t.access_token,
         refresh_token: t.refresh_token,
         expires_at: t.expires_at,
+        provider: "ely".into(),
     }))
 }
 
@@ -158,7 +159,7 @@ pub struct Profile {
 }
 
 // 32 hex-символа UUID → представление с дефисами, как ждёт игра
-fn dashed_uuid(hex: &str) -> String {
+pub fn dashed_uuid(hex: &str) -> String {
     let h: String = hex.chars().filter(|c| c.is_ascii_hexdigit()).collect();
     if h.len() != 32 {
         return hex.to_string();

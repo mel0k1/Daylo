@@ -9,7 +9,9 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 
 use super::super::core::ely;
+use super::super::core::msa;
 use super::super::core::paths;
+use super::super::core::settings;
 use super::config;
 use super::crash;
 use super::install;
@@ -91,14 +93,23 @@ pub async fn launch(
     nick: &str,
     instance: &str,
 ) -> Result<(), String> {
-    // Ely.by: живой токен и профиль важнее локального ника; сбой сети — играем оффлайн
-    let acc = ely::current_account().await;
+    // Провайдер аккаунта выбирает путь обновления токена и user_type:
+    // Microsoft → "msa", Ely.by → "mojang" через authlib-injector, нет — оффлайн
+    let provider = settings::load()
+        .account
+        .map(|a| a.provider)
+        .unwrap_or_default();
+    let acc = if provider == "msa" {
+        msa::current_account().await
+    } else {
+        ely::current_account().await
+    };
     let (player, uuid, token, user_type) = match &acc {
         Some(a) => (
             a.name.clone(),
             a.uuid.clone(),
             a.access_token.clone(),
-            "mojang",
+            if provider == "msa" { "msa" } else { "mojang" },
         ),
         None => (
             nick.trim().to_string(),
@@ -191,8 +202,9 @@ pub async fn launch(
         "-Dlog4j2.formatMsgNoLookups=true".into(),
         format!("-Xmx{}M", cfg.ram_mb),
     ];
-    // Скин и авторизация Ely.by: агент переключает authlib игры на sessionserver ely.by
-    if acc.is_some() {
+    // Скин и авторизация Ely.by: агент переключает authlib игры на sessionserver ely.by.
+    // Microsoft авторизуется сам, агент ему не нужен.
+    if acc.is_some() && provider != "msa" {
         match ely::ensure_authlib().await {
             Ok(jar) => jvm.push(format!(
                 "-javaagent:{}={}",

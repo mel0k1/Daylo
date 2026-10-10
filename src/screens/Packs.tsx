@@ -67,7 +67,7 @@ export function Packs() {
   const [packPct, setPackPct] = useState(0)
 
   const nick = useGame((s) => s.nick)
-  const elyName = useAccount((s) => (s.info?.mode === 'ely' ? s.info.name : ''))
+  const accName = useAccount((s) => (s.info && s.info.mode !== 'offline' ? s.info.name : ''))
 
   const online = hasTauri()
 
@@ -119,7 +119,7 @@ export function Packs() {
     setLaunching(id)
     setError('')
     try {
-      const name = elyName || nick.trim() || 'Player'
+      const name = accName || nick.trim() || 'Player'
       await launchInstance(id, name)
       setStage('игра запущена')
     } catch (e) {
