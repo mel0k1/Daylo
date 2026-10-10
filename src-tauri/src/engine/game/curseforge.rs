@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use serde::Serialize;
 use serde_json::Value;
 
@@ -239,6 +241,101 @@ pub async fn install_mod(instance: &str, mod_id: &str, file_id: &str) -> Result<
     .await
 }
 
+// --- Фингерпринты: murmur2 с фильтром пробелов, как у CurseForge ---
+
+// MurmurHash2 (32 бита, блоки little-endian) с заданным seed.
+// Эталон сверен с векторами официального клиента Kafka (seed 0x9747b28c).
+fn murmur2(data: &[u8], seed: u32) -> u64 {
+    const M: u32 = 0x5bd1e995;
+    let mut h: u32 = seed ^ data.len() as u32;
+    let blocks = data.len() / 4;
+    for i in 0..blocks {
+        let j = i * 4;
+        let mut k = u32::from_le_bytes([data[j], data[j + 1], data[j + 2], data[j + 3]]);
+        k = k.wrapping_mul(M);
+        k ^= k >> 24;
+        k = k.wrapping_mul(M);
+        h = h.wrapping_mul(M) ^ k;
+    }
+    // Хвост — по падению case в референсе: старшие байты первыми, умножение одно
+    let rest = &data[blocks * 4..];
+    if rest.len() == 3 {
+        h ^= (rest[2] as u32) << 16;
+    }
+    if rest.len() >= 2 {
+        h ^= (rest[1] as u32) << 8;
+    }
+    if rest.len() >= 1 {
+        h ^= rest[0] as u32;
+        h = h.wrapping_mul(M);
+    }
+    h ^= h >> 13;
+    h = h.wrapping_mul(M);
+    h ^= h >> 15;
+    h as u64
+}
+
+// Фингерпринт jar по содержимому: seed 1, а байты 09/0A/0D/20 выкидываются
+pub fn fingerprint(bytes: &[u8]) -> u64 {
+    let kept: Vec<u8> = bytes
+        .iter()
+        .copied()
+        .filter(|b| !matches!(b, 0x09 | 0x0A | 0x0D | 0x20))
+        .collect();
+    murmur2(&kept, 1)
+}
+
+pub async fn fingerprint_file(path: &Path) -> Option<u64> {
+    let bytes = tokio::fs::read(path).await.ok()?;
+    Some(fingerprint(&bytes))
+}
+
+// У API лимит 256 фингерпринтов на запрос
+const FP_BATCH: usize = 256;
+
+// /fingerprints есть у официального API; зеркало знает и старый путь
+async fn post_fingerprints(body: &Value) -> Result<Value, String> {
+    match post_json("/fingerprints", body).await {
+        Ok(v) => Ok(v),
+        Err(e) => post_json("/mods/fingerprints", body).await.map_err(|_| e),
+    }
+}
+
+// Опознание jar по фингерпринтам: точные совпадения → (id мода, файл).
+// Совпадения не возвращают сам фингерпринт — сопоставляем по имени файла.
+pub async fn by_fingerprints(hashes: &[u64]) -> Result<Vec<(String, CfFile)>, String> {
+    let mut out = Vec::new();
+    for batch in hashes.chunks(FP_BATCH) {
+        let body = serde_json::json!({ "fingerprints": batch });
+        let v = post_fingerprints(&body).await?;
+        let arr = v["data"][0]["exactMatches"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        for m in &arr {
+            let Some(mod_id) = m["id"].as_i64().map(|x| x.to_string()) else {
+                continue;
+            };
+            let Some(file) = parse_file(&m["file"]) else {
+                continue;
+            };
+            out.push((mod_id, file));
+        }
+    }
+    Ok(out)
+}
+
+// Свежий файл мода под версию игры: files уже отсортированы по дате
+pub async fn latest_file(mod_id: &str, game_version: &str) -> Option<CfFile> {
+    files(mod_id, game_version).await.ok()?.into_iter().next()
+}
+
+// Обновление CF-мода: свежий файл ставится, прежний убирается
+pub async fn replace_mod(instance: &str, mod_id: &str, file_id: &str, old_file: &str) -> Result<(), String> {
+    install_mod(instance, mod_id, file_id).await?;
+    modrinth::uninstall(instance, old_file).await
+}
+
 // Пачка файлов сборки: один запрос на 50 id вместо сотен одиночных
 pub async fn bulk_files(file_ids: &[String]) -> Result<Vec<CfFile>, String> {
     let mut out = Vec::new();
@@ -278,5 +375,25 @@ mod tests {
         let q = clean_query(&[("a", "1"), ("b", "")]);
         assert_eq!(q.len(), 1);
         assert_eq!(query_string(&[("a", "1"), ("b", "")]), "?a=1");
+    }
+
+    #[test]
+    fn murmur2_matches_reference_vectors() {
+        // Эталон Kafka (seed 0x9747b28c) — покрывает блоки цикла и хвосты 1–3
+        assert_eq!(murmur2(b"a", 0x9747b28c), 2731586172);
+        assert_eq!(murmur2(b"abc", 0x9747b28c), 479470107);
+        assert_eq!(murmur2(b"abcde", 0x9747b28c), 461995741);
+        assert_eq!(murmur2(b"21", 0x9747b28c), 3321034988);
+        assert_eq!(murmur2(b"foobar", 0x9747b28c), 3504634814);
+        assert_eq!(murmur2(b"a-little-bit-long-string", 0x9747b28c), 3308985760);
+        // CurseForge: seed 1 поверх байтов без 09/0A/0D/20
+        assert_eq!(fingerprint(b""), 1540447798);
+        assert_eq!(fingerprint(b" "), 1540447798);
+        assert_eq!(fingerprint(b"a"), 626045324);
+        assert_eq!(fingerprint(b"aa"), 1775036265);
+        assert_eq!(fingerprint(b"hello world"), 2824650221);
+        // Пробел, таб и перевод строки не меняют фингерпринт
+        assert_eq!(fingerprint(b"hello  world"), 2824650221);
+        assert_eq!(fingerprint(b"hello\tworld\n"), 2824650221);
     }
 }

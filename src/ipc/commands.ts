@@ -80,8 +80,8 @@ export interface ModUpdate {
 export const modsUpdates = (version: string) =>
   invoke<ModUpdate[]>('mods_updates', { version })
 
-export const modsUpdate = (version: string, file: string, modVersionId: string) =>
-  invoke<void>('mods_update', { version, file, modVersionId })
+export const modsUpdate = (version: string, file: string, modVersionId: string, projectId: string) =>
+  invoke<void>('mods_update', { version, file, modVersionId, projectId })
 
 export const getInstanceConfig = (version: string) =>
   invoke<InstanceConfig>('get_instance_config', { version })

@@ -316,7 +316,8 @@ pub async fn tracked(instance: &str) -> Vec<ModMeta> {
         .collect()
 }
 
-// Для модов без учёта ищем проект по sha1 файла и записываем в учёт
+// Для модов без учёта ищем проект по sha1 файла, а неудачных опознаём
+// по фингерпринтам CurseForge и записываем в учёт
 pub async fn resolve_untracked(instance: &str) -> usize {
     let files = installed(instance).await;
     let known: HashSet<String> = load_meta(&meta_path(instance))
@@ -325,6 +326,7 @@ pub async fn resolve_untracked(instance: &str) -> usize {
         .collect();
     let mut list = load_meta(&meta_path(instance));
     let mut n = 0;
+    let mut cf_pending: Vec<(String, std::path::PathBuf)> = Vec::new();
     for f in files {
         if known.contains(&f) || !f.ends_with(".jar") {
             continue;
@@ -334,35 +336,93 @@ pub async fn resolve_untracked(instance: &str) -> usize {
             continue;
         };
         let url = format!("{API}/version_file/{hash}?algorithm=sha1");
-        let Ok(body) = http::text(&url).await else {
-            continue;
-        };
-        let Ok(raw) = serde_json::from_str::<VersionRaw>(&body) else {
-            continue;
-        };
-        if raw.project_id.is_empty() {
-            continue;
+        match http::text(&url).await {
+            Ok(body) => {
+                let Ok(raw) = serde_json::from_str::<VersionRaw>(&body) else {
+                    continue;
+                };
+                if raw.project_id.is_empty() {
+                    cf_pending.push((f, path));
+                    continue;
+                }
+                list.push(ModMeta {
+                    file: f,
+                    project_id: raw.project_id.clone(),
+                    version_id: raw.id.clone(),
+                    version_number: raw.version_number.clone(),
+                });
+                n += 1;
+            }
+            // Modrinth не знает jar — кандидат на опознание CurseForge
+            Err(_) => cf_pending.push((f, path)),
         }
-        list.push(ModMeta {
-            file: f,
-            project_id: raw.project_id.clone(),
-            version_id: raw.id.clone(),
-            version_number: raw.version_number.clone(),
-        });
-        n += 1;
     }
+    n += resolve_by_fingerprints(&mut list, &cf_pending).await;
     if n > 0 {
         let _ = save_meta(&meta_path(instance), &list);
     }
     n
 }
 
-// Свежие версии для учтённых модов; сеть по одному проекту — сбой пропускается
+// Неопознанные jar ищем фингерпринтами CurseForge батчами и дописываем в учёт
+async fn resolve_by_fingerprints(
+    list: &mut Vec<ModMeta>,
+    pending: &[(String, std::path::PathBuf)],
+) -> usize {
+    if pending.is_empty() {
+        return 0;
+    }
+    let mut pairs: Vec<(String, u64)> = Vec::new();
+    for (name, path) in pending {
+        if let Some(fp) = super::curseforge::fingerprint_file(path).await {
+            pairs.push((name.clone(), fp));
+        }
+    }
+    let hashes: Vec<u64> = pairs.iter().map(|(_, h)| *h).collect();
+    let Ok(matches) = super::curseforge::by_fingerprints(&hashes).await else {
+        return 0;
+    };
+    let mut n = 0;
+    for (name, _) in pairs {
+        let Some((mod_id, file)) = matches
+            .iter()
+            .find(|(_, f)| f.file_name.eq_ignore_ascii_case(&name))
+            .map(|(m, f)| (m.clone(), f.clone()))
+        else {
+            continue;
+        };
+        list.push(ModMeta {
+            file: name,
+            project_id: format!("cf:{mod_id}"),
+            version_id: file.file_id.clone(),
+            version_number: file.display.clone(),
+        });
+        n += 1;
+    }
+    n
+}
+
+// Свежие версии для учтённых модов; сеть по одному проекту — сбой пропускается.
+// Записи «cf:ид» идут в CurseForge, остальные в Modrinth.
 pub async fn check_updates(instance: &str, game_version: &str) -> Vec<ModUpdate> {
     resolve_untracked(instance).await;
     let metas = tracked(instance).await;
     let mut out = Vec::new();
     for m in metas {
+        if let Some(mod_id) = m.project_id.strip_prefix("cf:") {
+            if let Some(latest) = super::curseforge::latest_file(mod_id, game_version).await {
+                if latest.file_id != m.version_id {
+                    out.push(ModUpdate {
+                        file: m.file,
+                        project_id: m.project_id,
+                        current_version: m.version_number,
+                        latest_version_id: latest.file_id.clone(),
+                        latest_version_number: latest.display.clone(),
+                    });
+                }
+            }
+            continue;
+        }
         if m.project_id.is_empty() {
             continue;
         }

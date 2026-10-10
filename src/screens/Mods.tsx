@@ -65,7 +65,7 @@ export function Mods() {
     setUpdating(u.file)
     setError('')
     try {
-      await modsUpdate(instance, u.file, u.latest_version_id)
+      await modsUpdate(instance, u.file, u.latest_version_id, u.project_id)
       setUpdates((list) => list.filter((x) => x.file !== u.file))
       refreshInstalled(instance)
     } catch (e) {

@@ -39,13 +39,19 @@ pub async fn mods_updates(
     Ok(engine::game::modrinth::check_updates(&version, &gv).await)
 }
 
+// Обновление по источнику мода: «cf:ид» — CurseForge, остальное Modrinth
 #[tauri::command]
 pub async fn mods_update(
     version: String,
     file: String,
     mod_version_id: String,
+    project_id: String,
 ) -> Result<(), String> {
-    engine::game::modrinth::update(&version, &file, &mod_version_id).await
+    if let Some(mod_id) = project_id.strip_prefix("cf:") {
+        engine::game::curseforge::replace_mod(&version, mod_id, &mod_version_id, &file).await
+    } else {
+        engine::game::modrinth::update(&version, &file, &mod_version_id).await
+    }
 }
 
 // Базовая версия игры: у профилей загрузчиков — родительская ванила
