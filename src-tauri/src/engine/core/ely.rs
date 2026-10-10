@@ -276,8 +276,10 @@ pub async fn ensure_authlib() -> Result<std::path::PathBuf, String> {
         .map_err(|e| format!("папка агентов: {e}"))?;
     let jar = dir.join("authlib-injector.jar");
 
+    // Фид и jar идут через зеркало с фолбэком на оригинал; sha256 в download
+    // сам решает, перекачивать ли испорченный или устаревший файл
     let meta: serde_json::Value =
-        serde_json::from_str(&http::text(AUTHLIB_FEED).await.unwrap_or_default())
+        serde_json::from_str(&http::text_mirrored(AUTHLIB_FEED).await.unwrap_or_default())
             .unwrap_or(serde_json::Value::Null);
     let signed = meta["download_url"]
         .as_str()
@@ -291,9 +293,7 @@ pub async fn ensure_authlib() -> Result<std::path::PathBuf, String> {
         Some((u, s)) => (u, s),
         None => (AUTHLIB_PINNED_URL.into(), AUTHLIB_PINNED_SHA256.into()),
     };
-    if !jar.exists() {
-        http::download(&url, &jar, None, Some(&sha256), None).await?;
-    }
+    http::download_mirrored(&url, &jar, None, Some(&sha256), None).await?;
     Ok(jar)
 }
 

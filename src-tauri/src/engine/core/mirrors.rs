@@ -54,6 +54,11 @@ pub fn mirror_url(url: &str) -> Option<String> {
             url.strip_prefix("https://launcher.mojang.com/")
                 .map(|r| format!("{MIRROR}/{r}"))
         })
+        .or_else(|| {
+            // Агент authlib-injector для Ely.by зеркалится у BMCLAPI
+            url.strip_prefix("https://authlib-injector.yushi.moe/")
+                .map(|r| format!("{MIRROR}/mirrors/authlib-injector/{r}"))
+        })
 }
 
 // Адреса одного ресурса в порядке попыток: зеркало (если включено) → оригинал.
@@ -77,7 +82,7 @@ mod tests {
     // и адреса, которые зеркалить нельзя.
     #[test]
     fn mirror_table_matches_launcher_routes() {
-        let cases: [(&str, Option<&str>); 11] = [
+        let cases: [(&str, Option<&str>); 13] = [
             (
                 "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",
                 Some("https://bmclapi2.bangbang93.com/mc/game/version_manifest_v2.json"),
@@ -112,6 +117,16 @@ mod tests {
             ),
             ("https://api.modrinth.com/v2/search", None),
             ("https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge", None),
+            (
+                "https://authlib-injector.yushi.moe/artifact/latest.json",
+                Some("https://bmclapi2.bangbang93.com/mirrors/authlib-injector/artifact/latest.json"),
+            ),
+            (
+                "https://authlib-injector.yushi.moe/artifact/56/authlib-injector-1.2.8.jar",
+                Some(
+                    "https://bmclapi2.bangbang93.com/mirrors/authlib-injector/artifact/56/authlib-injector-1.2.8.jar",
+                ),
+            ),
             ("https://meta.fabricmc.net.evil.example/v2/x", None),
         ];
         for (url, want) in cases {
