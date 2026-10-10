@@ -147,7 +147,9 @@ pub async fn instance_create(
 
     // Долго: ванила качает игру, загрузчик — инсталлер. Прогресс — install-progress,
     // итог — pack-installed, как у установки из каталога
+    let task_id = id.clone();
     tauri::async_runtime::spawn(async move {
+        let id = task_id;
         let built = if custom {
             engine::game::install::ensure_version(app.clone(), &mc_version)
                 .await
