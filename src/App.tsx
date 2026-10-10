@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useUi } from './state/ui'
 import { useAccount } from './state/account'
 import { useGame } from './state/game'
@@ -7,9 +7,6 @@ import { Packs } from './screens/Packs'
 import { Mods } from './screens/Mods'
 import { Shots } from './screens/Shots'
 import { Settings } from './screens/Settings'
-import { hasTauri } from './ipc/tauri'
-import { appInfo, updateInstall, updateCheck, type UpdateInfo } from './ipc/commands'
-import { onUpdateProgress, type UpdateProgress } from './ipc/events'
 import { CrashModal } from './components/CrashModal'
 
 const navItems: { id: 'play' | 'packs' | 'mods' | 'shots' | 'settings'; label: string }[] = [
@@ -22,10 +19,10 @@ const navItems: { id: 'play' | 'packs' | 'mods' | 'shots' | 'settings'; label: s
 
 export default function App() {
   const screen = useUi((s) => s.screen)
-  const [update, setUpdate] = useState<UpdateInfo | null>(null)
-  const [progress, setProgress] = useState<UpdateProgress | null>(null)
-  const [updateError, setUpdateError] = useState('')
-  const [ver, setVer] = useState('')
+  const ver = useUi((s) => s.ver)
+  const update = useUi((s) => s.update)
+  const progress = useUi((s) => s.progress)
+  const updateError = useUi((s) => s.updateError)
   const account = useAccount((s) => s.info)
   // Краш-модал на уровне приложения: краш виден с любого экрана,
   // игра может быть запущена из «Сборок», а не только из «Играть»
@@ -34,27 +31,9 @@ export default function App() {
 
   useEffect(() => {
     void useAccount.getState().init()
-    void appInfo()
-      .then((a) => setVer(a.version))
-      .catch(() => {})
-    if (!hasTauri()) return
-    // Проверка свежей версии при старте; сбой сети не мешает работе
-    void updateCheck()
-      .then(setUpdate)
-      .catch(() => {})
-    void onUpdateProgress((p) => setProgress(p))
+    // Версия, проверка обновлений и слушатель прогресса — в общем сторе
+    useUi.getState().updateInit()
   }, [])
-
-  const applyUpdate = async () => {
-    if (!update) return
-    setUpdateError('')
-    try {
-      await updateInstall(update)
-    } catch (e) {
-      setUpdateError(String(e))
-      setProgress(null)
-    }
-  }
 
   const pct =
     progress && progress.total > 0 ? Math.min(100, Math.round((progress.received / progress.total) * 100)) : 0
@@ -76,7 +55,10 @@ export default function App() {
         {update && !progress && (
           <div className="update-banner">
             <span className="muted">Доступна v{update.version}</span>
-            <button className="link-btn" onClick={() => void applyUpdate()}>
+            <button
+              className="link-btn"
+              onClick={() => void useUi.getState().updateApply()}
+            >
               Обновить
             </button>
           </div>

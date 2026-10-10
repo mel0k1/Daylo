@@ -14,6 +14,7 @@ import {
 import { onPackProgress, onPackImported, type PackProgress } from '../ipc/events'
 import { useAccount } from '../state/account'
 import { useGame } from '../state/game'
+import { useUi } from '../state/ui'
 import { hasTauri } from '../ipc/tauri'
 
 // Вход через Ely.by или Microsoft: код устройства, браузер, ожидание подтверждения
@@ -153,6 +154,77 @@ function MirrorsCard() {
         Моды и сборки CurseForge идут через публичное зеркало. Свой ключ включает официальный API,
         если зеркало недоступно.
       </p>
+    </Card>
+  )
+}
+
+// Карточка обновления лаунчера: сводка релиза, тихая установка, ручная проверка
+function UpdateCard() {
+  const update = useUi((s) => s.update)
+  const progress = useUi((s) => s.progress)
+  const updateError = useUi((s) => s.updateError)
+  const checkNow = useUi((s) => s.updateCheckNow)
+  const apply = useUi((s) => s.updateApply)
+  const [checking, setChecking] = useState(false)
+
+  const check = async () => {
+    setChecking(true)
+    await checkNow()
+    setChecking(false)
+  }
+
+  const pct =
+    progress && progress.total > 0
+      ? Math.min(100, Math.round((progress.received / progress.total) * 100))
+      : 0
+
+  // Markdown из release notes в плоский текст на три строчки
+  const summary = (update?.notes ?? '')
+    .replace(/[#*`>\-\[\]]/g, '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(' · ')
+
+  return (
+    <Card className="play-card">
+      <h2 className="retro-title">Обновление</h2>
+      {update ? (
+        <>
+          <p>
+            Доступна v{update.version}
+            <span className="muted"> · {(update.size / 1048576).toFixed(1)} МБ</span>
+          </p>
+          {summary && <p className="muted mirrors-note">{summary}</p>}
+          {progress && (
+            <div className="update-banner">
+              <span className="muted">
+                {progress.done ? 'Устанавливаем…' : `Обновление: ${pct}%`}
+              </span>
+              <div className="update-bar">
+                <div
+                  className="update-bar-fill"
+                  style={{ width: `${progress.done ? 100 : pct}%` }}
+                />
+              </div>
+            </div>
+          )}
+          {!progress && (
+            <Button bg="#2f7d4f" onClick={() => void apply()}>
+              Установить и перезапуститься
+            </Button>
+          )}
+        </>
+      ) : (
+        <p className="muted mirrors-note">Лаунчер свежей версии.</p>
+      )}
+      <div className="play-row">
+        <Button onClick={() => void check()} disabled={checking || !!progress}>
+          {checking ? 'Проверяем…' : 'Проверить сейчас'}
+        </Button>
+      </div>
+      {updateError && <p className="error">{updateError}</p>}
     </Card>
   )
 }
@@ -357,6 +429,8 @@ export function Settings() {
       </Card>
 
       {online && <MirrorsCard />}
+
+      {online && <UpdateCard />}
 
       {online && <PacksCard />}
     </div>
