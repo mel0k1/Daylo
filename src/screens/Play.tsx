@@ -12,16 +12,17 @@ import {
 import { useGame } from '../state/game'
 import { useAccount } from '../state/account'
 import { hasTauri } from '../ipc/tauri'
-import { installLoader, loaderBuilds, skinSave, skinDelete, type LoaderBuild } from '../ipc/commands'
+import { installLoader, loaderBuilds, skinSave, skinDelete, skinLoad, elyUploadSkin, type LoaderBuild } from '../ipc/commands'
 import { SkinView } from '../components/SkinView'
 import { Servers } from '../components/Servers'
 import { News } from '../components/News'
 
-type Tab = 'vanilla' | 'fabric' | 'forge' | 'neoforge'
+type Tab = 'vanilla' | 'fabric' | 'quilt' | 'forge' | 'neoforge'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'vanilla', label: 'Ванила' },
   { id: 'fabric', label: 'Fabric' },
+  { id: 'quilt', label: 'Quilt' },
   { id: 'forge', label: 'Forge' },
   { id: 'neoforge', label: 'NeoForge' },
 ]
@@ -54,6 +55,7 @@ export function Play() {
   // Под аккаунтом Ely.by или Microsoft ник задаёт сервер авторизации, поле не редактируется
   const accName = useAccount((s) => (s.info && s.info.mode !== 'offline' ? s.info.name : ''))
   const accMode = accName !== ''
+  const accEly = useAccount((s) => s.info?.mode === 'ely')
 
   useEffect(() => {
     void init()
@@ -137,6 +139,29 @@ export function Play() {
       setSkinKey((k) => k + 1)
     } catch (e) {
       setSkinError(String(e))
+    }
+  }
+
+  // Выбранный PNG уезжает в аккаунт Ely.by — скин появится и на серверах
+  const [elyModel, setElyModel] = useState<'classic' | 'slim'>('classic')
+  const [elyBusy, setElyBusy] = useState(false)
+  const [elySaved, setElySaved] = useState(false)
+  const uploadEly = async () => {
+    const name = accMode ? accName : nick.trim()
+    if (!name) return
+    setElyBusy(true)
+    setSkinError('')
+    setElySaved(false)
+    try {
+      const b64 = await skinLoad(name)
+      if (!b64) throw new Error('сначала выберите файл скина')
+      await elyUploadSkin(elyModel, b64)
+      setElySaved(true)
+      setSkinKey((k) => k + 1)
+    } catch (e) {
+      setSkinError(String(e))
+    } finally {
+      setElyBusy(false)
     }
   }
 
@@ -268,6 +293,35 @@ export function Play() {
           >
             Убрать
           </Button>
+          {accEly && (
+            <div className="skin-ely">
+              <div className="play-row">
+                <DropdownMenu>
+                  <DropdownMenuTrigger>{elyModel === 'slim' ? 'slim · 3px' : 'classic · 4px'}</DropdownMenuTrigger>
+                  <DropdownMenuContent className="version-list">
+                    <DropdownMenuItem>
+                      <div className="version-item" onClick={() => setElyModel('classic')}>
+                        classic · 4px
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <div className="version-item" onClick={() => setElyModel('slim')}>
+                        slim · 3px
+                      </div>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                  bg="#2f7d4f"
+                  onClick={() => void uploadEly()}
+                  disabled={elyBusy}
+                >
+                  {elyBusy ? 'Загружаем…' : 'На Ely.by'}
+                </Button>
+              </div>
+              {elySaved && <p className="muted">Скин загружен в аккаунт.</p>}
+            </div>
+          )}
           {skinError && <p className="error">{skinError}</p>}
           <p className="muted skin-note">
             Скин применяется через CustomSkinLoader в сборках с загрузчиком; с аккаунтом Ely.by —

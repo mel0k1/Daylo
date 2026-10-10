@@ -1,4 +1,5 @@
 use serde::Serialize;
+use tauri::Emitter;
 
 use crate::engine;
 
@@ -111,6 +112,80 @@ pub async fn instance_list() -> Vec<InstanceInfo> {
         });
     }
     out
+}
+
+// --- Своя сборка: папка + daylo.json, ванила или загрузчик ---
+
+#[tauri::command]
+pub async fn instance_create(
+    app: tauri::AppHandle,
+    name: String,
+    mc_version: String,
+    loader: String,
+    build: String,
+) -> Result<String, String> {
+    let mc_version = mc_version.trim().to_string();
+    if mc_version.is_empty() {
+        return Err("выберите версию игры".into());
+    }
+    // Имя — безопасное и уникальное, как у импортированных сборок
+    let mut id = engine::core::paths::safe_name(&name);
+    if id == "unknown" {
+        id = "instance".into();
+    }
+    let base = id.clone();
+    let mut i = 2;
+    while engine::core::paths::instance_dir(&id).exists() {
+        id = format!("{base}-{i}");
+        i += 1;
+    }
+    let loader = loader.trim().to_lowercase();
+    let custom = loader.is_empty() || loader == "vanilla";
+    if !custom && build.trim().is_empty() {
+        return Err("выберите сборку загрузчика".into());
+    }
+
+    // Долго: ванила качает игру, загрузчик — инсталлер. Прогресс — install-progress,
+    // итог — pack-installed, как у установки из каталога
+    tauri::async_runtime::spawn(async move {
+        let built = if custom {
+            engine::game::install::ensure_version(app.clone(), &mc_version)
+                .await
+                .map(|_| String::new())
+        } else {
+            engine::game::loaders::install(app.clone(), &loader, &mc_version, build.trim())
+                .await
+        };
+        match built {
+            Ok(profile) => {
+                let cfg = engine::game::config::InstanceConfig {
+                    kind: "custom".into(),
+                    source: "custom".into(),
+                    pack_name: name,
+                    mc_version: mc_version.clone(),
+                    // ванила запускается своей версией, загрузчик — профилем
+                    launch_version: if profile.is_empty() {
+                        mc_version
+                    } else {
+                        profile
+                    },
+                    ..Default::default()
+                };
+                let result = engine::game::config::write(&id, &cfg).await;
+                let _ = app.emit(
+                    "pack-installed",
+                    serde_json::json!({ "instance": id, "error": result.err() }),
+                );
+            }
+            Err(e) => {
+                let _ = app.emit(
+                    "pack-installed",
+                    serde_json::json!({ "instance": id, "error": e }),
+                );
+            }
+        }
+    });
+    Ok(id)
 }
 
 #[tauri::command]

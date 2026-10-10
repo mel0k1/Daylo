@@ -43,7 +43,6 @@ pub enum Poll {
 struct Tokens {
     access_token: String,
     refresh_token: String,
-    expires_at: u64,
 }
 
 fn now() -> u64 {
@@ -102,11 +101,9 @@ async fn token_request(body: String) -> Result<serde_json::Value, String> {
 fn tokens_of(v: &serde_json::Value) -> Option<Tokens> {
     let access_token = v["access_token"].as_str()?.to_string();
     let refresh_token = v["refresh_token"].as_str().unwrap_or_default().to_string();
-    let ttl = v["expires_in"].as_u64().unwrap_or(86400);
     Some(Tokens {
         access_token,
         refresh_token,
-        expires_at: now() + ttl.saturating_sub(60),
     })
 }
 
@@ -323,14 +320,13 @@ mod tests {
     }
 
     #[test]
-    fn tokens_expires_soon() {
+    fn tokens_need_access() {
         let t = tokens_of(&serde_json::json!({
             "access_token": "at", "refresh_token": "rt", "expires_in": 86400
         }))
         .unwrap();
         assert_eq!(t.access_token, "at");
         assert_eq!(t.refresh_token, "rt");
-        assert!(t.expires_at > now() + 3600);
         assert!(tokens_of(&serde_json::json!({})).is_none());
     }
 }

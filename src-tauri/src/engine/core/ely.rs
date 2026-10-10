@@ -241,6 +241,32 @@ pub async fn logout() -> Result<(), String> {
     settings::update(|s| s.account = None)
 }
 
+// Загрузка скина в аккаунт Ely.by: модель classic (4px руки) или slim (3px)
+pub async fn upload_skin(model: &str, png: &[u8]) -> Result<(), String> {
+    let model = match model {
+        "slim" => "slim",
+        _ => "classic",
+    };
+    let acc = current_account()
+        .await
+        .ok_or("нет аккаунта Ely.by — сначала войдите")?;
+    if acc.provider != "ely" {
+        return Err("скин загружается только в аккаунт Ely.by".into());
+    }
+    let url = format!("https://account.ely.by/api/mojang/services/minecraft/skins/{model}");
+    let res = http::client()
+        .put(&url)
+        .header("Authorization", format!("Bearer {}", acc.access_token))
+        .header("Content-Type", "image/png")
+        .body(png.to_vec())
+        .send()
+        .await
+        .map_err(|e| format!("загрузка скина: {e}"))?;
+    res.error_for_status()
+        .map_err(|e| format!("ely.by отклонил скин: {e}"))?;
+    Ok(())
+}
+
 // authlib-injector: фид свежей сборки с sha256, при недоступности — pinned.
 // Испорченный jar в JVM не загрузится, поэтому проверка суммы обязательна.
 pub async fn ensure_authlib() -> Result<std::path::PathBuf, String> {

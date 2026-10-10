@@ -262,10 +262,10 @@ fn murmur2(data: &[u8], seed: u32) -> u64 {
     if rest.len() == 3 {
         h ^= (rest[2] as u32) << 16;
     }
-    if rest.len() >= 2 {
-        h ^= (rest[1] as u32) << 8;
-    }
-    if rest.len() >= 1 {
+    if !rest.is_empty() {
+        if rest.len() >= 2 {
+            h ^= (rest[1] as u32) << 8;
+        }
         h ^= rest[0] as u32;
         h = h.wrapping_mul(M);
     }

@@ -14,10 +14,13 @@ import {
   packVersions,
   packInstall,
   instanceList,
+  instanceCreate,
   instanceDelete,
   launchInstance,
   listVersions,
+  loaderBuilds,
   type VersionEntry,
+  type LoaderBuild,
   type PackHit,
   type PackVersionInfo,
   type InstanceInfo,
@@ -40,6 +43,166 @@ const SOURCE_LABEL: Record<string, string> = {
   modrinth: 'Modrinth',
   curseforge: 'CurseForge',
   ftb: 'FTB',
+  custom: 'Своя',
+}
+
+type OwnLoader = 'vanilla' | 'fabric' | 'quilt' | 'forge' | 'neoforge'
+
+const OWN_LOADERS: { id: OwnLoader; label: string }[] = [
+  { id: 'vanilla', label: 'Ванила' },
+  { id: 'fabric', label: 'Fabric' },
+  { id: 'quilt', label: 'Quilt' },
+  { id: 'forge', label: 'Forge' },
+  { id: 'neoforge', label: 'NeoForge' },
+]
+
+// Сборка «своими руками»: версия игры, опционально загрузчик — остальное само
+function BuildOwnCard({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const [name, setName] = useState('')
+  const [mcVersion, setMcVersion] = useState('')
+  const [versions, setVersions] = useState<VersionEntry[]>([])
+  const [loader, setLoader] = useState<OwnLoader>('vanilla')
+  const [builds, setBuilds] = useState<LoaderBuild[]>([])
+  const [build, setBuild] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    void listVersions()
+      .then((list) => {
+        setVersions(list)
+        setMcVersion((cur) => cur || list.find((v) => v.type === 'release')?.id || '')
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (loader === 'vanilla' || !mcVersion) {
+      setBuilds([])
+      setBuild('')
+      return
+    }
+    let dead = false
+    void loaderBuilds(loader, mcVersion)
+      .then((list) => {
+        if (dead) return
+        setBuilds(list)
+        setBuild(list.find((b) => b.recommended)?.version ?? list[0]?.version ?? '')
+      })
+      .catch(() => {
+        if (!dead) {
+          setBuilds([])
+          setBuild('')
+        }
+      })
+    return () => {
+      dead = true
+    }
+  }, [loader, mcVersion])
+
+  // Итог приходит событием pack-installed — и здесь, и в общем списке
+  useEffect(() => {
+    void onPackInstalled((p) => {
+      setPending(false)
+      setBusy(false)
+      if (p.error) setError(p.error)
+    })
+  }, [])
+
+  const releases = versions.filter((v) => v.type === 'release')
+
+  const create = async () => {
+    if (busy || !mcVersion) return
+    setBusy(true)
+    setError('')
+    try {
+      await instanceCreate(name.trim() || 'Моя сборка', mcVersion, loader, build)
+      setPending(true)
+    } catch (e) {
+      setError(String(e))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card className="mods-installed build-own">
+      <div className="mods-head">
+        <Button onClick={onToggle}>{open ? 'Свернуть' : 'Собрать свою'}</Button>
+        <p className="muted mirrors-note">
+          Ванила или загрузчик под выбранную версию — качается и ставится сама.
+        </p>
+      </div>
+      {open && (
+        <>
+          <div className="play-row">
+            <Input
+              className="mods-query"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Название сборки"
+              maxLength={32}
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger>{mcVersion || 'Версия…'}</DropdownMenuTrigger>
+              <DropdownMenuContent className="version-list">
+                {releases.map((v) => (
+                  <DropdownMenuItem key={v.id}>
+                    <div className="version-item" onClick={() => setMcVersion(v.id)}>
+                      {v.id}
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <div className="tabs source-tabs">
+            {OWN_LOADERS.map((l) => (
+              <button
+                key={l.id}
+                className={loader === l.id ? 'tab on' : 'tab'}
+                onClick={() => setLoader(l.id)}
+              >
+                {l.label}
+              </button>
+            ))}
+          </div>
+          <div className="play-row">
+            {loader !== 'vanilla' &&
+              (builds.length > 0 ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger>
+                    {build ? (builds.find((b) => b.version === build)?.recommended ? `${build} · рекоменд.` : build) : 'Сборка…'}
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="version-list">
+                    {builds.map((b) => (
+                      <DropdownMenuItem key={b.version}>
+                        <div className="version-item" onClick={() => setBuild(b.version)}>
+                          {b.version}
+                          {b.recommended ? ' · рекоменд.' : ''}
+                          {!b.stable ? ' · тест' : ''}
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <span className="muted loader-hint">Сборок {loader} под {mcVersion} нет</span>
+              ))}
+            <Button
+              bg="#2f7d4f"
+              onClick={() => void create()}
+              disabled={busy || pending || !mcVersion || (loader !== 'vanilla' && !build)}
+            >
+              {pending ? 'Ставим…' : 'Создать'}
+            </Button>
+          </div>
+          {pending && <p className="muted">Ставим сборку — прогресс виден на экране «Играть».</p>}
+          {error && <p className="error">{error}</p>}
+        </>
+      )}
+    </Card>
+  )
 }
 
 function fmtDownloads(n: number): string {
@@ -54,6 +217,7 @@ export function Packs() {
   const [launching, setLaunching] = useState('')
   const [stage, setStage] = useState('')
   const [error, setError] = useState('')
+  const [builder, setBuilder] = useState(false)
 
   const [source, setSource] = useState<Source>('modrinth')
   const [query, setQuery] = useState('')
@@ -231,6 +395,7 @@ export function Packs() {
 
       {view === 'mine' && (
         <>
+          <BuildOwnCard open={builder} onToggle={() => setBuilder(!builder)} />
           {instances.length === 0 ? (
             <Card className="mods-installed">
               <div className="mods-empty">

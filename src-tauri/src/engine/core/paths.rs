@@ -38,7 +38,7 @@ pub fn version_dir(version: &str) -> PathBuf {
 }
 
 // Отсекает обход путей и мусор в именах версий
-fn safe_name(name: &str) -> String {
+pub fn safe_name(name: &str) -> String {
     let mut out = String::new();
     let mut dot = false;
     for c in name.chars() {

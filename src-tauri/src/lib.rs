@@ -25,6 +25,7 @@ pub fn run() {
             commands::packs::pack_search,
             commands::packs::pack_versions,
             commands::packs::pack_install,
+            commands::packs::instance_create,
             commands::packs::instance_list,
             commands::packs::instance_delete,
             commands::packs::curseforge_search,
@@ -58,6 +59,7 @@ pub fn run() {
             commands::skin::skin_save,
             commands::skin::skin_load,
             commands::skin::skin_delete,
+            commands::skin::ely_upload_skin,
         ])
         .run(tauri::generate_context!())
         .expect("не удалось запустить Daylo");

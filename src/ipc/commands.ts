@@ -102,6 +102,9 @@ export const skinLoad = (nick: string) => invoke<string | null>('skin_load', { n
 
 export const skinDelete = (nick: string) => invoke<void>('skin_delete', { nick })
 
+export const elyUploadSkin = (model: string, pngBase64: string) =>
+  invoke<void>('ely_upload_skin', { model, pngBase64 })
+
 export interface ServerStatus {
   online: boolean
   ms: number
@@ -238,6 +241,9 @@ export const packInstall = (source: string, packId: string, versionId: string, i
   invoke<void>('pack_install', { source, packId, versionId, icon })
 
 export const instanceList = () => invoke<InstanceInfo[]>('instance_list')
+
+export const instanceCreate = (name: string, mcVersion: string, loader: string, build: string) =>
+  invoke<string>('instance_create', { name, mcVersion, loader, build })
 
 export const instanceDelete = (id: string) => invoke<void>('instance_delete', { id })
 
