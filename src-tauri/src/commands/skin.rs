@@ -21,8 +21,6 @@ pub async fn skin_delete(nick: String) -> Result<(), String> {
 // Локальный PNG уходит в аккаунт Ely.by: модель classic или slim
 #[tauri::command]
 pub async fn ely_upload_skin(model: String, png_base64: String) -> Result<(), String> {
-    let png = B64
-        .decode(png_base64)
-        .map_err(|_| "не PNG в base64")?;
+    let png = B64.decode(png_base64).map_err(|_| "не PNG в base64")?;
     engine::core::ely::upload_skin(&model, &png).await
 }

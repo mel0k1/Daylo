@@ -15,7 +15,11 @@ pub struct AccountInfo {
 pub async fn account_info() -> AccountInfo {
     match engine::core::ely::current_account().await {
         Some(a) => AccountInfo {
-            mode: if a.provider == "msa" { "msa".into() } else { "ely".into() },
+            mode: if a.provider == "msa" {
+                "msa".into()
+            } else {
+                "ely".into()
+            },
             name: a.name,
             uuid: a.uuid,
         },

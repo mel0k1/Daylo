@@ -153,8 +153,7 @@ pub async fn instance_create(
                 .await
                 .map(|_| String::new())
         } else {
-            engine::game::loaders::install(app.clone(), &loader, &mc_version, build.trim())
-                .await
+            engine::game::loaders::install(app.clone(), &loader, &mc_version, build.trim()).await
         };
         match built {
             Ok(profile) => {
