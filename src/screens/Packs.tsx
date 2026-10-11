@@ -26,7 +26,7 @@ import {
   type InstanceInfo,
 } from '../ipc/commands'
 import { onPackProgress, onPackInstalled, onGameExit, type PackProgress } from '../ipc/events'
-import { useGame } from '../state/game'
+import { useGame, NICK_RE } from '../state/game'
 import { useAccount } from '../state/account'
 import { hasTauri } from '../ipc/tauri'
 import { AiBuild } from '../components/AiBuild'
@@ -281,10 +281,15 @@ export function Packs() {
 
   const launch = async (id: string) => {
     if (!online) return
+    const name = accName || nick.trim() || 'Player'
+    // Без аккаунта имя уйдёт в игру как есть — проверяем до запуска
+    if (!accName && !NICK_RE.test(name)) {
+      setError('ник: только латиница, цифры и подчёркивания, 1–16 символов')
+      return
+    }
     setLaunching(id)
     setError('')
     try {
-      const name = accName || nick.trim() || 'Player'
       await launchInstance(id, name)
       setStage('игра запущена')
     } catch (e) {

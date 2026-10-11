@@ -37,6 +37,9 @@ interface GameState {
 
 let wired = false
 
+// Ник оффлайна идёт в игру как есть — те же правила, что у ванильных серверов
+export const NICK_RE = /^[A-Za-z0-9_]{1,16}$/
+
 export const useGame = create<GameState>((set, get) => ({
   versions: [],
   version: '',
@@ -115,11 +118,16 @@ export const useGame = create<GameState>((set, get) => ({
   play: async () => {
     const { version, nick, busy, playing } = get()
     if (busy || playing || !version) return
+    const acc = useAccount.getState().info
+    const name = acc?.mode === 'ely' && acc.name ? acc.name : nick.trim() || 'Player'
+    // Гард для UX: без аккаунта имя уйдёт в игру как есть, ядро его отвергнет
+    if ((!acc || acc.mode === 'offline') && !NICK_RE.test(name)) {
+      set({ error: 'ник: только латиница, цифры и подчёркивания, 1–16 символов' })
+      return
+    }
     set({ busy: true, error: '', stage: 'подготовка', progress: 0 })
     try {
       // Аккаунт Ely.by важнее локального ника: ядро возьмёт его имя и токен
-      const acc = useAccount.getState().info
-      const name = acc?.mode === 'ely' && acc.name ? acc.name : nick || 'Player'
       await launchGame(version, name)
       set({ busy: false, playing: true, stage: 'игра запущена' })
     } catch (e) {

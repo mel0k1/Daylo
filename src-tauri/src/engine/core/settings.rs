@@ -182,7 +182,11 @@ pub fn save(s: &Settings) -> Result<(), String> {
     let body =
         serde_json::to_string_pretty(s).map_err(|e| format!("сериализация настроек: {e}"))?;
     std::fs::write(&tmp, body).map_err(|e| format!("запись настроек: {e}"))?;
+    // Права на tmp: rename сохраняет inode и права, окно с открытым файлом минимально
+    restrict_perms(&tmp);
     std::fs::rename(&tmp, &path).map_err(|e| format!("сохранение настроек: {e}"))?;
+    // Идемпотентно на случай унаследованных прав у старого файла
+    restrict_perms(&path);
     Ok(())
 }
 
@@ -191,6 +195,17 @@ pub fn update(f: impl FnOnce(&mut Settings)) -> Result<(), String> {
     f(&mut s);
     save(&s)
 }
+
+// Токены аккаунтов лежат в settings.json открытым текстом — на Unix файл
+// должен читать только владелец (на Windows права задаёт профиль юзера)
+#[cfg(unix)]
+fn restrict_perms(path: &std::path::Path) {
+    use std::os::unix::fs::PermissionsExt;
+    let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+}
+
+#[cfg(not(unix))]
+fn restrict_perms(_path: &std::path::Path) {}
 
 #[cfg(test)]
 mod tests {
@@ -258,5 +273,23 @@ mod tests {
         assert_eq!(clamp_window(999_999, 99_999), (7680, 4320));
         // Ширина в норме, высота за пределами
         assert_eq!(clamp_window(500, 10_000), (500, 4320));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn settings_file_is_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("daylo-perms-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("settings.json");
+        std::fs::write(&f, "{}").unwrap();
+        std::fs::set_permissions(&f, std::fs::Permissions::from_mode(0o644)).unwrap();
+        restrict_perms(&f);
+        assert_eq!(
+            std::fs::metadata(&f).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

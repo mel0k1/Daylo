@@ -71,6 +71,13 @@ fn offline_uuid(nick: &str) -> String {
     )
 }
 
+// Ник оффлайна идёт в игру и на серверы как есть: латиница, цифры и
+// подчёркивания, 1..=16 символов — иначе сервер отвергнет вход
+fn ok_nick(nick: &str) -> bool {
+    let n = nick.chars().count();
+    n > 0 && n <= 16 && nick.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
 fn subst(arg: &str, map: &HashMap<&str, String>) -> String {
     match map.get(arg) {
         Some(v) => v.clone(),
@@ -155,6 +162,10 @@ async fn launch_body(
             "legacy",
         ),
     };
+    // Оффлайн-ник проверяем до тяжёлой подготовки: мусор до докачки не доводим
+    if acc.is_none() && !ok_nick(&player) {
+        return Err("ник: только латиница, цифры и подчёркивания, 1–16 символов".into());
+    }
     let _ = app.emit(
         "launch-progress",
         LaunchProgress {
@@ -547,6 +558,21 @@ mod tests {
         assert_eq!(u.len(), 36);
         assert_eq!(u.chars().filter(|c| *c == '-').count(), 4);
         assert!(u.chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
+    }
+
+    #[test]
+    fn offline_nick_rules() {
+        assert!(ok_nick("Steve"));
+        assert!(ok_nick("Notch_2"));
+        assert!(ok_nick("a"));
+        assert!(ok_nick(&"x".repeat(16)));
+        assert!(!ok_nick(""));
+        assert!(!ok_nick("   "));
+        assert!(!ok_nick("Стив"));
+        assert!(!ok_nick("two words"));
+        assert!(!ok_nick("semi;colon"));
+        assert!(!ok_nick(&"x".repeat(17)));
+        assert!(!ok_nick("a-b"));
     }
 
     #[tokio::test]
