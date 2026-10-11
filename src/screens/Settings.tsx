@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button, Card, Input, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from 'pixel-retroui'
 import {
   listVersions,
+  instanceList,
   getInstanceConfig,
   saveInstanceConfig,
   getLauncherSettings,
@@ -9,7 +10,7 @@ import {
   setCfKey,
   packExport,
   packImport,
-  type VersionEntry,
+  type InstanceInfo,
 } from '../ipc/commands'
 import { onPackProgress, onPackImported, type PackProgress } from '../ipc/events'
 import { useAccount } from '../state/account'
@@ -300,8 +301,21 @@ function PacksCard() {
   )
 }
 
+// Сборка в дропдауне настроек: id папки + подпись для человека
+interface Choice {
+  id: string
+  label: string
+}
+
+// У модпаков и своих сборок показываем имя и загрузчик, у ванилы — версию
+const choiceLabel = (i: InstanceInfo): string => {
+  if (i.kind !== 'vanilla' && i.loader) return `${i.name} · ${i.loader}`
+  if (i.kind !== 'vanilla') return i.name
+  return i.id
+}
+
 export function Settings() {
-  const [versions, setVersions] = useState<VersionEntry[]>([])
+  const [choices, setChoices] = useState<Choice[]>([])
   const [version, setVersion] = useState(localStorage.getItem('daylo.cfg.version') ?? '')
   const [ram, setRam] = useState('2048')
   const [flags, setFlags] = useState('')
@@ -312,16 +326,30 @@ export function Settings() {
 
   useEffect(() => {
     if (!online) return
-    void listVersions()
-      .then((list) => {
-        setVersions(list)
+    void (async () => {
+      try {
+        // Установленные сборки (модпаки, свои) первыми — их настраивают чаще;
+        // релизы Mojang остаются для преднастройки памяти до первой установки
+        const [inst, list] = await Promise.all([
+          instanceList().catch(() => [] as InstanceInfo[]),
+          listVersions(),
+        ])
+        const built: Choice[] = [
+          ...inst.map((i) => ({ id: i.id, label: choiceLabel(i) })),
+          ...list
+            .filter((v) => v.type === 'release' && !inst.some((i) => i.id === v.id))
+            .map((v) => ({ id: v.id, label: v.id })),
+        ]
+        setChoices(built)
         const stored = localStorage.getItem('daylo.cfg.version')
-        const fallback = list.find((v) => v.type === 'release')?.id ?? ''
-        const id = stored && list.some((v) => v.id === stored) ? stored : fallback
+        const id =
+          stored && built.some((c) => c.id === stored) ? stored : (built[0]?.id ?? '')
         setVersion(id)
         loadConfig(id)
-      })
-      .catch((e) => setError(String(e)))
+      } catch (e) {
+        setError(String(e))
+      }
+    })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -365,7 +393,7 @@ export function Settings() {
     }
   }
 
-  const releases = versions.filter((v) => v.type === 'release')
+  const currentLabel = choices.find((c) => c.id === version)?.label ?? version
 
   return (
     <div className="screen">
@@ -376,12 +404,12 @@ export function Settings() {
       <Card className="play-card">
         <div className="play-row">
           <DropdownMenu>
-            <DropdownMenuTrigger>{version || 'Сборка…'}</DropdownMenuTrigger>
+            <DropdownMenuTrigger>{currentLabel || 'Сборка…'}</DropdownMenuTrigger>
             <DropdownMenuContent className="version-list">
-              {releases.map((v) => (
-                <DropdownMenuItem key={v.id}>
-                  <div className="version-item" onClick={() => pickVersion(v.id)}>
-                    {v.id}
+              {choices.map((c) => (
+                <DropdownMenuItem key={c.id}>
+                  <div className="version-item" onClick={() => pickVersion(c.id)}>
+                    {c.label}
                   </div>
                 </DropdownMenuItem>
               ))}
