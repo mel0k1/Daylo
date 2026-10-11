@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::path::Path;
 
 use serde::Serialize;
@@ -72,33 +73,41 @@ async fn post(base: &str, path: &str, body: &Value, key: Option<&str>) -> Result
         .ok_or_else(|| "в ответе CurseForge нет data".into())
 }
 
-// Зеркало без ключа, затем официальный API с ключом из настроек
-async fn get(path: &str) -> Result<Value, String> {
-    let mirror = fetch(MIRROR, path, None).await;
-    if mirror.is_ok() {
-        return mirror;
+// Один порядок для GET и POST: с ключом официалка первая (надёжнее зеркала —
+// у того квоты и региональные блокировки), без ключа — только зеркало
+async fn with_key_order<F, Fut>(op: F) -> Result<Value, String>
+where
+    F: Fn(&'static str, Option<String>) -> Fut,
+    Fut: Future<Output = Result<Value, String>>,
+{
+    let mut official_err: Option<String> = None;
+    if let Some(k) = key() {
+        match op(OFFICIAL, Some(k.trim().to_string())).await {
+            Ok(v) => return Ok(v),
+            Err(e) if e.contains("401") || e.contains("403") => {
+                return Err(format!(
+                    "{e}; ключ CurseForge отклонён — проверьте его в настройках"
+                ));
+            }
+            Err(e) => official_err = Some(e),
+        }
     }
-    match key() {
-        Some(k) => fetch(OFFICIAL, path, Some(k.trim())).await,
-        None => Err(format!(
-            "{}; добавьте ключ API CurseForge в настройках",
-            mirror.unwrap_err()
-        )),
+    match op(MIRROR, None).await {
+        Ok(v) => Ok(v),
+        Err(me) => match official_err {
+            Some(oe) => Err(format!("{oe}; зеркало тоже не ответило ({me})")),
+            None => Err(format!("{me}; добавьте ключ API CurseForge в настройках")),
+        },
     }
 }
 
+// Поиск по ключу: с ключом официалка, без — зеркало
+async fn get(path: &str) -> Result<Value, String> {
+    with_key_order(|base, k| async move { fetch(base, path, k.as_deref()).await }).await
+}
+
 async fn post_json(path: &str, body: &Value) -> Result<Value, String> {
-    let mirror = post(MIRROR, path, body, None).await;
-    if mirror.is_ok() {
-        return mirror;
-    }
-    match key() {
-        Some(k) => post(OFFICIAL, path, body, Some(k.trim())).await,
-        None => Err(format!(
-            "{}; добавьте ключ API CurseForge в настройках",
-            mirror.unwrap_err()
-        )),
-    }
+    with_key_order(|base, k| async move { post(base, path, body, k.as_deref()).await }).await
 }
 
 fn clean_query<'a>(q: &[(&'a str, &'a str)]) -> Vec<(&'a str, &'a str)> {

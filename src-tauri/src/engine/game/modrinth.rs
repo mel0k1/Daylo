@@ -150,24 +150,41 @@ pub async fn search(query: &str, game_version: &str) -> Result<Vec<SearchHit>, S
     search_type(query, game_version, "mod").await
 }
 
+// Facets поиска: Modrinth ждёт массив массивов — ИЛИ внутри группы, И между
+// группами. Плоский список строк сервер отвергает с 400 Bad Request.
+fn facets_json(project_type: &str, game_version: &str) -> String {
+    let mut groups = vec![format!(r#"["project_type:{project_type}"]"#)];
+    if !game_version.is_empty() {
+        groups.push(format!(r#"["versions:{game_version}"]"#));
+    }
+    format!("[{}]", groups.join(","))
+}
+
 // Поиск по типу проекта: mod, modpack, resourcepack…
 pub async fn search_type(
     query: &str,
     game_version: &str,
     project_type: &str,
 ) -> Result<Vec<SearchHit>, String> {
-    let mut facets = vec![format!(r#""project_type:{project_type}""#)];
-    if !game_version.is_empty() {
-        facets.push(format!(r#""versions:{game_version}""#));
-    }
-    let facets = format!("[{}]", facets.join(","));
-    let url = format!(
+    let with_version = format!(
         "{API}/search?query={}&limit=40&index=relevance&facets={}",
         enc(query),
-        enc(&facets)
+        enc(&facets_json(project_type, game_version))
     );
-    let raw: SearchRaw = serde_json::from_str(&http::text(&url).await?)
-        .map_err(|e| format!("ответ Modrinth: {e}"))?;
+    // Modrinth ещё не занёс свежую версию игры в каталог — ищем без фильтра
+    let body = match http::text(&with_version).await {
+        Ok(t) => t,
+        Err(e) if !game_version.is_empty() && e.contains("400") => {
+            let no_version = format!(
+                "{API}/search?query={}&limit=40&index=relevance&facets={}",
+                enc(query),
+                enc(&facets_json(project_type, ""))
+            );
+            http::text(&no_version).await?
+        }
+        Err(e) => return Err(e),
+    };
+    let raw: SearchRaw = serde_json::from_str(&body).map_err(|e| format!("ответ Modrinth: {e}"))?;
     Ok(raw
         .hits
         .into_iter()
@@ -611,6 +628,16 @@ pub async fn track(instance: &str, meta: ModMeta) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn facets_are_nested_arrays() {
+        // Плоский список строк Modrinth отвечает 400 — только группы
+        assert_eq!(
+            facets_json("modpack", "1.21.1"),
+            r#"[["project_type:modpack"],["versions:1.21.1"]]"#
+        );
+        assert_eq!(facets_json("mod", ""), r#"[["project_type:mod"]]"#);
+    }
 
     #[test]
     fn enc_keeps_unreserved() {
