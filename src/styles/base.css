@@ -1,4 +1,4 @@
-/* Daylo — пиксельная тема. Шрифты: Press Start 2P (заголовки), Pixelify Sans (текст) */
+/* Daylo — пиксельная тема. Шрифты: Pixuf (заголовки, кратен 8), Pixelify Sans (текст) */
 
 :root {
   color-scheme: dark;
@@ -43,7 +43,7 @@
   --danger: #e5636f;
   --link: #7d9bff;
 
-  --font-pixel: 'Press Start 2P', 'Pixelify Sans', monospace;
+  --font-pixel: 'Pixuf', 'Press Start 2P', 'Pixelify Sans', monospace;
   --font-ui: 'Pixelify Sans', system-ui, sans-serif;
 
   font-family: var(--font-ui);
@@ -120,7 +120,7 @@ body {
 
 .logo {
   font-family: var(--font-pixel);
-  font-size: 18px;
+  font-size: 24px;
   color: #fff;
   text-shadow: 3px 3px 0 var(--ink);
   padding: 2px 8px 6px;
@@ -256,7 +256,7 @@ body {
 
 .retro-title {
   font-family: var(--font-pixel);
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 400;
   color: #fff;
   text-shadow: 2px 2px 0 var(--ink);
@@ -1117,7 +1117,7 @@ textarea::placeholder {
 
 .backups-title {
   margin-top: 18px;
-  font-size: 13px;
+  font-size: 16px;
 }
 
 .backup-list {

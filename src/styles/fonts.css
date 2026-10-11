@@ -1,6 +1,16 @@
-/* Пиксельные шрифты с кириллицей, вшиты локально (OFL) */
+/* Пиксельные шрифты с кириллицей, вшиты локально (OFL / CC0) */
 
-/* Press Start 2P — заголовки, логотип */
+/* Pixuf — заголовки и логотип: пропорциональный пиксель-шрифт с полной
+   кириллицей, сетка кратна 8 (16/24px), CC0 — erytau 2020 */
+@font-face {
+  font-family: 'Pixuf';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/Pixuf.ttf') format('truetype');
+}
+
+/* Press Start 2P — фолбэк заголовков */
 @font-face {
   font-family: 'Press Start 2P';
   font-style: normal;
