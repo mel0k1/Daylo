@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -43,6 +43,13 @@ type Running = HashMap<String, Arc<Mutex<Option<tokio::process::Child>>>>;
 fn running() -> &'static std::sync::Mutex<Running> {
     static RUNNING: std::sync::OnceLock<std::sync::Mutex<Running>> = std::sync::OnceLock::new();
     RUNNING.get_or_init(|| std::sync::Mutex::new(HashMap::new()))
+}
+
+// Сборки, остановленные пользователем: их выход — не краш, модал не показываем
+fn stopping() -> &'static std::sync::Mutex<HashSet<String>> {
+    static STOPPING: std::sync::OnceLock<std::sync::Mutex<HashSet<String>>> =
+        std::sync::OnceLock::new();
+    STOPPING.get_or_init(|| std::sync::Mutex::new(HashSet::new()))
 }
 
 // UUID оффлайн-профиля, как в ваниле: md5 от "OfflinePlayer:<ник>"
@@ -354,8 +361,14 @@ async fn launch_body(
                 .lock()
                 .ok()
                 .and_then(|mut r| r.remove(&exit_version));
+            // Остановленная пользователем игра — не краш, даже с кодом 143
+            let intentional = stopping()
+                .lock()
+                .ok()
+                .map(|mut s| s.remove(&exit_version))
+                .unwrap_or(false);
             // Причину ищем по логу, когда игра вышла нештатно
-            let crash = if code != Some(0) {
+            let crash = if !intentional && code != Some(0) {
                 crash::analyze(&exit_version, code).await
             } else {
                 None
@@ -451,19 +464,71 @@ async fn rotate_log(path: &PathBuf) {
     let _ = tokio::fs::rename(path, &old).await;
 }
 
-// Останавливает запущенную игру
+// Останавливает игру: сначала мягко (JVM успевает сохранить мир через
+// shutdown hooks), по таймауту — жёстко
 pub async fn stop(version_id: &str) -> Result<(), String> {
     let slot = running()
         .lock()
         .map_err(|_| "реестр процессов")?
         .remove(version_id);
-    if let Some(slot) = slot {
-        let mut guard = slot.lock().await;
-        if let Some(child) = guard.as_mut() {
-            let _ = child.kill().await;
+    let Some(slot) = slot else {
+        return Ok(());
+    };
+    stopping()
+        .lock()
+        .map_err(|_| "реестр процессов")?
+        .insert(version_id.to_string());
+
+    let pid = {
+        let guard = slot.lock().await;
+        guard.as_ref().and_then(|c| c.id())
+    };
+    if let Some(pid) = pid {
+        request_exit(pid);
+    }
+    // До 10 секунд ждём мирного выхода, лок отпускаем на каждой проверке —
+    // watcher должен успевать заглянуть в процесс
+    for _ in 0..20 {
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        let alive = {
+            let mut guard = slot.lock().await;
+            match guard.as_mut() {
+                Some(c) => matches!(c.try_wait(), Ok(None)),
+                None => false,
+            }
+        };
+        if !alive {
+            return Ok(());
         }
     }
+    let mut guard = slot.lock().await;
+    if let Some(c) = guard.as_mut() {
+        let _ = c.kill().await;
+    }
     Ok(())
+}
+
+// Мягкий запрос на закрытие: SIGTERM — JVM исполняет shutdown hooks и
+// сохраняет мир; на Windows WM_CLOSE окну игры через taskkill без /F
+fn request_exit(pid: u32) {
+    #[cfg(unix)]
+    {
+        unsafe {
+            libc::kill(pid as i32, libc::SIGTERM);
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let _ = std::process::Command::new("taskkill")
+            .args(["/PID", &pid.to_string()])
+            .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
+            .spawn();
+    }
+    #[cfg(not(any(unix, target_os = "windows")))]
+    {
+        let _ = pid;
+    }
 }
 
 #[cfg(test)]

@@ -68,6 +68,11 @@ pub fn run() {
             commands::worlds::world_backups_open,
             commands::ai::ai_build_plan,
         ])
+        .setup(|_app| {
+            // Временные файлы прошлых сессий: архивы сборок, .part, установщики
+            tauri::async_runtime::spawn(engine::core::cleanup::run());
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("не удалось запустить Daylo");
 }

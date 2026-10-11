@@ -1,3 +1,4 @@
+pub mod cleanup;
 pub mod ely;
 pub mod http;
 pub mod mirrors;
