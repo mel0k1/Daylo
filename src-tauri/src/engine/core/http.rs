@@ -162,6 +162,9 @@ async fn download_once(
         .map_err(|e| format!("скачивание {url}: {e}"))?;
 
     let part = to.with_extension("part");
+    // Родитель создаётся здесь, а не в обёртках: библиотеки ходят через
+    // download_mirrored, и вложенные com/mojang/... без этого падали os error 3
+    ensure_parent(&part).await?;
     let mut file = tokio::fs::File::create(&part)
         .await
         .map_err(|e| format!("создание {}: {e}", part.display()))?;
@@ -208,4 +211,31 @@ async fn download_once(
         .await
         .map_err(|e| format!("переименование {}: {e}", to.display()))?;
     Ok(())
+}
+
+async fn ensure_parent(p: &Path) -> Result<(), String> {
+    if let Some(parent) = p.parent() {
+        if !parent.as_os_str().is_empty() {
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| format!("папка {}: {e}", parent.display()))?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Вложенные родители библиотек должны создаваться сами, без обёрток
+    #[tokio::test]
+    async fn ensure_parent_builds_nested_dirs() {
+        let base = std::env::temp_dir().join(format!("daylo-http-test-{}", std::process::id()));
+        let part = base.join("com/mojang/jtracy/1.14.38/jtracy-1.14.38.part");
+        let _ = tokio::fs::remove_dir_all(&base).await;
+        ensure_parent(&part).await.expect("родитель создан");
+        assert!(part.parent().unwrap().is_dir());
+        let _ = tokio::fs::remove_dir_all(&base).await;
+    }
 }
