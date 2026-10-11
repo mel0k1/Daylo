@@ -17,6 +17,9 @@ pub struct VersionEntry {
     pub loader: String,
     #[serde(default)]
     pub base: String,
+    // Скачана ли версия: у ванилы на диске клиент-jar, профили всегда с диска
+    #[serde(default)]
+    pub installed: bool,
 }
 
 #[derive(Deserialize)]
@@ -50,6 +53,7 @@ pub async fn list() -> Result<Vec<VersionEntry>, String> {
                 release_time: v.release_time,
                 loader: String::new(),
                 base: String::new(),
+                installed: false,
             })
             .collect();
         Ok::<Vec<VersionEntry>, String>(list)

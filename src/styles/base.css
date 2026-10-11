@@ -102,84 +102,99 @@ body {
 #root,
 .app {
   display: flex;
+  flex-direction: column;
   height: 100%;
 }
 
-/* ---------- Сайдбар ---------- */
+/* ---------- Нижняя панель навигации ---------- */
 
-.sidebar {
+.bottombar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 56px;
+  flex-shrink: 0;
+  padding: 0 14px;
+  background: var(--bg-panel);
+  border-top: 2px solid var(--ink);
+  box-shadow: inset 0 4px 0 var(--border-soft);
+  z-index: 5;
+}
+
+.logo-wrap {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  width: 216px;
-  padding: 18px 12px 14px;
-  background: var(--bg-panel);
-  border-right: 2px solid var(--ink);
-  box-shadow: inset -4px 0 0 var(--border-soft);
+  gap: 2px;
+  margin-right: 12px;
+  flex-shrink: 0;
 }
 
 .logo {
   font-family: var(--font-pixel);
-  font-size: 24px;
+  font-size: 18px;
+  line-height: 1;
   color: #fff;
-  text-shadow: 3px 3px 0 var(--ink);
-  padding: 2px 8px 6px;
+  text-shadow: 2px 2px 0 var(--ink);
   letter-spacing: 1px;
 }
 
 /* Полоска «травы» под логотипом */
 .logo-strip {
-  height: 4px;
-  margin: 0 8px 14px;
+  height: 3px;
   background: linear-gradient(#5b8f3a 0 50%, #7a5a34 50% 100%);
   border: 2px solid var(--ink);
 }
 
 .nav {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   text-align: left;
-  padding: 10px 12px;
+  padding: 7px 12px;
   border: 2px solid transparent;
   border-radius: 0;
   background: transparent;
   color: var(--text-dim);
   font-family: var(--font-ui);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 /* Цветной слот-иконка пункта меню */
 .nav::before {
   content: '';
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   flex-shrink: 0;
   background: var(--slot, #6a7280);
   border: 2px solid var(--ink);
   box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.25);
 }
 
-.sidebar .nav:nth-of-type(1) {
+.bottombar .nav:nth-of-type(1) {
   --slot: #5b8f3a;
 }
 
-.sidebar .nav:nth-of-type(2) {
+.bottombar .nav:nth-of-type(2) {
   --slot: #c17b3f;
 }
 
-.sidebar .nav:nth-of-type(3) {
+.bottombar .nav:nth-of-type(3) {
   --slot: #3f8f8f;
 }
 
-.sidebar .nav:nth-of-type(4) {
+.bottombar .nav:nth-of-type(4) {
   --slot: #8f5f9f;
 }
 
-.sidebar .nav:nth-of-type(5) {
+.bottombar .nav:nth-of-type(5) {
   --slot: #8a8f98;
+}
+
+.bottombar .nav:nth-of-type(6) {
+  --slot: #b0563f;
 }
 
 .nav:hover {
@@ -190,16 +205,36 @@ body {
 .nav.on {
   background: var(--accent);
   border-color: var(--ink);
-  box-shadow: 3px 3px 0 var(--ink);
+  box-shadow: 2px 2px 0 var(--ink);
   color: #fff;
+}
+
+.bar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* На узком окне пункты меню сжимаются, правый чип — первым сдает место */
+@media (max-width: 1020px) {
+  .bar-right .acc-chip .mode,
+  .bar-right .side-ver {
+    display: none;
+  }
+
+  .nav {
+    padding: 7px 8px;
+    font-size: 14px;
+  }
 }
 
 .acc-chip {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
-  padding: 8px 10px;
+  padding: 6px 10px;
   border: 2px solid var(--border-soft);
   background: var(--bg-inset);
   font-size: 14px;
@@ -233,9 +268,9 @@ body {
 }
 
 .side-ver {
-  padding: 6px 8px 0;
   font-size: 12px;
   color: var(--muted);
+  white-space: nowrap;
 }
 
 /* ---------- Контент ---------- */
@@ -280,9 +315,9 @@ h1.retro-title {
   flex-wrap: wrap;
 }
 
-.play-row .nick {
+.nick {
   flex: 1;
-  min-width: 160px;
+  min-width: 150px;
 }
 
 .version-list {
@@ -543,23 +578,110 @@ textarea::placeholder {
   outline-offset: -2px;
 }
 
-/* ---------- Экран игры ---------- */
+/* ---------- Главный экран: топ-бар и библиотека ---------- */
 
-.play-layout {
+.home-screen {
+  padding: 22px 32px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.topbar {
+  padding: 12px 16px;
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.home-status {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.home-body {
   display: flex;
   gap: 18px;
-  padding: 28px 32px;
   align-items: flex-start;
 }
 
-.play-layout .play-screen {
-  padding: 0;
-  max-width: none;
+.library {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 24px;
+}
+
+.lib-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lib-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lib-head .retro-title {
+  font-size: 14px;
+}
+
+.lib-action {
+  margin-left: auto;
+}
+
+.lib-empty {
+  border: 2px dashed var(--border-soft);
+  background: var(--bg-inset);
+  padding: 18px 16px;
+  text-align: center;
+}
+
+.loader-install {
+  border: 2px solid var(--border-soft);
+  background: var(--bg-inset);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Карточки скачанных версий */
+.ver-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.ver-card {
+  padding: 12px;
+  gap: 8px;
+}
+
+.ver-card.on {
+  border-color: var(--accent);
+}
+
+.ver-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.ver-name {
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  color: #fff;
+  text-shadow: 1px 1px 0 var(--ink);
+  word-break: break-all;
 }
 
 .tabs {
@@ -759,6 +881,9 @@ textarea::placeholder {
   flex-direction: column;
   gap: 18px;
   min-width: 0;
+  /* Скин и новости остаются на виду при прокрутке библиотеки */
+  position: sticky;
+  top: 0;
 }
 
 .side-column .skin-card {
@@ -1114,8 +1239,8 @@ textarea::placeholder {
 
 /* ---------- Обновление лаунчера ---------- */
 
+/* Блок в карточке «Обновление» на экране настроек */
 .update-banner {
-  margin-top: auto;
   padding: 10px 12px;
   border: 2px solid #3a4048;
   border-radius: 0;
@@ -1126,12 +1251,28 @@ textarea::placeholder {
   font-size: 13px;
 }
 
+/* Компактный чип обновления в нижней панели */
+.update-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 2px solid #3a4048;
+  background: var(--bg-inset);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
 .update-bar {
   height: 6px;
   border: 2px solid #3a4048;
   border-radius: 0;
   overflow: hidden;
   background: var(--ink);
+}
+
+.update-chip .update-bar {
+  width: 90px;
 }
 
 .update-bar-fill {
@@ -1142,7 +1283,10 @@ textarea::placeholder {
 
 .upd-err {
   font-size: 11px;
-  padding: 0 4px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---------- ИИ-сборщик ---------- */

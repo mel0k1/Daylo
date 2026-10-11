@@ -66,6 +66,8 @@ export const useGame = create<GameState>((set, get) => ({
       const pct = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0
       set({ stage: p.stage, progress: p.stage === 'готово' ? 100 : pct })
       if (p.stage === 'готово') {
+        // Версия доустановлена — обновляем список (флаг installed в библиотеке)
+        void get().refresh()
         setTimeout(() => set({ progress: 0, stage: '' }), 1500)
       }
     })

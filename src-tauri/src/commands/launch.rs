@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::engine;
 use tauri::Emitter;
 
@@ -13,10 +15,41 @@ pub async fn list_versions() -> Result<Vec<engine::game::mcmeta::VersionEntry>, 
                 release_time: String::new(),
                 loader,
                 base,
+                // Профиль попадает в список только если его json существует
+                installed: true,
             });
         }
     }
+    // Скачанные ванильные версии: на диске лежит клиент-jar
+    let jars = installed_jars();
+    mark_installed(&mut list, &jars);
     Ok(list)
+}
+
+// Идентификаторы версий с клиентом на диске: versions/<id>/<id>.jar
+fn installed_jars() -> HashSet<String> {
+    let mut out = HashSet::new();
+    let Ok(rd) = std::fs::read_dir(engine::core::paths::versions_dir()) else {
+        return out;
+    };
+    for entry in rd.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        let path = entry.path();
+        if path.is_dir() && path.join(format!("{name}.jar")).is_file() {
+            out.insert(name);
+        }
+    }
+    out
+}
+
+// Отметить скачанные ванильные версии; профили загрузчиков приходят только с
+// диска и помечаются при добавлении в список
+fn mark_installed(list: &mut [engine::game::mcmeta::VersionEntry], jars: &HashSet<String>) {
+    for v in list.iter_mut() {
+        if v.loader.is_empty() && jars.contains(&v.id) {
+            v.installed = true;
+        }
+    }
 }
 
 #[tauri::command]
@@ -106,4 +139,40 @@ pub async fn launch_instance(
 #[tauri::command]
 pub async fn stop_game(version: String) -> Result<(), String> {
     engine::game::launch::stop(&version).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn entry(id: &str, loader: &str) -> engine::game::mcmeta::VersionEntry {
+        engine::game::mcmeta::VersionEntry {
+            id: id.into(),
+            kind: if loader.is_empty() {
+                "release".into()
+            } else {
+                loader.into()
+            },
+            release_time: String::new(),
+            loader: loader.into(),
+            base: String::new(),
+            installed: false,
+        }
+    }
+
+    #[test]
+    fn installed_marks_only_vanilla_with_jar() {
+        let mut list = vec![
+            entry("1.21.10", ""),
+            entry("1.21.9", ""),
+            entry("fabric-loader-0.16.9", "fabric"),
+        ];
+        let jars: HashSet<String> = ["1.21.10".to_string()].into();
+        mark_installed(&mut list, &jars);
+        assert!(list[0].installed);
+        assert!(!list[1].installed);
+        // профили загрузчиков помечаются при добавлении из local_profiles,
+        // mark_installed их не трогает
+        assert!(!list[2].installed);
+    }
 }

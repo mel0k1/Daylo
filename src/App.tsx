@@ -42,9 +42,19 @@ export default function App() {
 
   return (
     <div className="app">
-      <nav className="sidebar">
-        <div className="logo">Daylo</div>
-        <div className="logo-strip" />
+      <main className="content">
+        {screen === 'play' && <Play />}
+        {screen === 'packs' && <Packs />}
+        {screen === 'mods' && <Mods />}
+        {screen === 'worlds' && <Worlds />}
+        {screen === 'shots' && <Shots />}
+        {screen === 'settings' && <Settings />}
+      </main>
+      <nav className="bottombar">
+        <div className="logo-wrap">
+          <div className="logo">Daylo</div>
+          <div className="logo-strip" />
+        </div>
         {navItems.map((item) => (
           <button
             key={item.id}
@@ -54,45 +64,46 @@ export default function App() {
             {item.label}
           </button>
         ))}
-        {update && !progress && (
-          <div className="update-banner">
-            <span className="muted">Доступна v{update.version}</span>
-            <button
-              className="link-btn"
-              onClick={() => void useUi.getState().updateApply()}
-            >
-              Обновить
-            </button>
-          </div>
-        )}
-        {progress && (
-          <div className="update-banner">
-            <span className="muted">
-              {progress.done ? 'Устанавливаем…' : `Обновление: ${pct}%`}
-            </span>
-            <div className="update-bar">
-              <div className="update-bar-fill" style={{ width: `${progress.done ? 100 : pct}%` }} />
+        <div className="bar-right">
+          {update && !progress && (
+            <div className="update-chip">
+              <span className="muted">Доступна v{update.version}</span>
+              <button
+                className="link-btn"
+                onClick={() => void useUi.getState().updateApply()}
+              >
+                Обновить
+              </button>
             </div>
-          </div>
-        )}
-        {updateError && <span className="error upd-err">{updateError}</span>}
-        {account && account.mode !== 'offline' && (
-          <div className="acc-chip">
-            <span className={account.mode === 'ely' ? 'acc-dot ely' : 'acc-dot'} />
-            <span className="name">{account.name}</span>
-            <span className="mode">{account.mode === 'ely' ? 'ely.by' : 'Microsoft'}</span>
-          </div>
-        )}
-        {ver && <div className="side-ver">v{ver}</div>}
+          )}
+          {progress && (
+            <div className="update-chip">
+              <span className="muted">
+                {progress.done ? 'Устанавливаем…' : `Обновление: ${pct}%`}
+              </span>
+              <div className="update-bar">
+                <div
+                  className="update-bar-fill"
+                  style={{ width: `${progress.done ? 100 : pct}%` }}
+                />
+              </div>
+            </div>
+          )}
+          {updateError && (
+            <span className="error upd-err" title={updateError}>
+              {updateError}
+            </span>
+          )}
+          {account && account.mode !== 'offline' && (
+            <div className="acc-chip">
+              <span className={account.mode === 'ely' ? 'acc-dot ely' : 'acc-dot'} />
+              <span className="name">{account.name}</span>
+              <span className="mode">{account.mode === 'ely' ? 'ely.by' : 'Microsoft'}</span>
+            </div>
+          )}
+          {ver && <div className="side-ver">v{ver}</div>}
+        </div>
       </nav>
-      <main className="content">
-        {screen === 'play' && <Play />}
-        {screen === 'packs' && <Packs />}
-        {screen === 'mods' && <Mods />}
-        {screen === 'worlds' && <Worlds />}
-        {screen === 'shots' && <Shots />}
-        {screen === 'settings' && <Settings />}
-      </main>
       {crash && <CrashModal info={crash} onClose={dropCrash} />}
     </div>
   )

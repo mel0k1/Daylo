@@ -12,6 +12,8 @@ export interface VersionEntry {
   // Профили загрузчиков: тег и базовая версия игры
   loader: string
   base: string
+  // Версия скачана: у ванилы на диске клиент-jar, профили всегда локальные
+  installed: boolean
 }
 
 export interface LoaderBuild {

@@ -13,24 +13,19 @@ import {
   packSearch,
   packVersions,
   packInstall,
-  instanceList,
   instanceCreate,
-  instanceDelete,
-  instanceVerify,
-  launchInstance,
   listVersions,
   loaderBuilds,
   type VersionEntry,
   type LoaderBuild,
   type PackHit,
   type PackVersionInfo,
-  type InstanceInfo,
 } from '../ipc/commands'
-import { onPackProgress, onPackInstalled, onVerifyDone, onGameExit, type PackProgress } from '../ipc/events'
-import { useGame, NICK_RE } from '../state/game'
-import { useAccount } from '../state/account'
+import { onPackInstalled } from '../ipc/events'
 import { hasTauri } from '../ipc/tauri'
 import { AiBuild } from '../components/AiBuild'
+import { InstanceCard, SOURCE_LABEL } from '../components/InstanceCard'
+import { useInstances } from '../state/instances'
 
 type View = 'mine' | 'catalog'
 type Source = 'modrinth' | 'curseforge' | 'ftb'
@@ -40,13 +35,6 @@ const SOURCES: { id: Source; label: string }[] = [
   { id: 'curseforge', label: 'CurseForge' },
   { id: 'ftb', label: 'FTB' },
 ]
-
-const SOURCE_LABEL: Record<string, string> = {
-  modrinth: 'Modrinth',
-  curseforge: 'CurseForge',
-  ftb: 'FTB',
-  custom: 'Своя',
-}
 
 type OwnLoader = 'vanilla' | 'fabric' | 'quilt' | 'forge' | 'neoforge'
 
@@ -214,11 +202,12 @@ function fmtDownloads(n: number): string {
 }
 
 export function Packs() {
-  const [view, setView] = useState<View>('mine')
-  const [instances, setInstances] = useState<InstanceInfo[]>([])
-  const [launching, setLaunching] = useState('')
-  const [stage, setStage] = useState('')
-  const [error, setError] = useState('')
+  const [view, setView] = useState<View>(() => {
+    // Переход из библиотеки («Каталог сборок →») открывает нужный вид
+    const saved = sessionStorage.getItem('daylo.packs.view')
+    sessionStorage.removeItem('daylo.packs.view')
+    return saved === 'catalog' ? 'catalog' : 'mine'
+  })
   const [builder, setBuilder] = useState(false)
 
   const [source, setSource] = useState<Source>('modrinth')
@@ -229,26 +218,14 @@ export function Packs() {
   const [versions, setVersions] = useState<VersionEntry[]>([])
   const [gv, setGv] = useState(localStorage.getItem('daylo.packs.version') ?? '')
   const [busy, setBusy] = useState('')
-  const [packStage, setPackStage] = useState('')
-  const [packPct, setPackPct] = useState(0)
-  // id сборки, у которой идёт проверка файлов
-  const [verifying, setVerifying] = useState('')
+  // Ошибки каталога: поиск, выбор, установка
+  const [error, setError] = useState('')
 
-  const nick = useGame((s) => s.nick)
-  const accName = useAccount((s) => s.info?.name ?? '')
-
+  const inst = useInstances()
   const online = hasTauri()
 
-  const refresh = () => {
-    if (!online) return
-    void instanceList()
-      .then(setInstances)
-      .catch(() => setInstances([]))
-  }
-
   useEffect(() => {
-    if (!online) return
-    refresh()
+    useInstances.getState().init()
     void listVersions()
       .then((list) => {
         setVersions(list)
@@ -257,93 +234,15 @@ export function Packs() {
         setGv(stored && list.some((v) => v.id === stored) ? stored : fallback)
       })
       .catch(() => {})
-    void onPackProgress((p: PackProgress) => {
-      setPackStage(p.error ? '' : `${p.stage} ${p.done}/${p.total}`)
-      setPackPct(p.total > 0 ? Math.round((p.done / p.total) * 100) : 0)
-    })
+    // Установка из каталога завершилась — показываем «Мои сборки»
     void onPackInstalled((p) => {
-      setPackStage('')
-      setPackPct(0)
-      refresh()
-      if (p.error) {
-        setError(p.error)
-      } else {
-        setError('')
-        setView('mine')
-      }
+      if (!p.error) setView('mine')
     })
-    void onVerifyDone((p) => {
-      setPackStage('')
-      setPackPct(0)
-      setVerifying('')
-      refresh()
-      if (p.error) {
-        setError(p.error)
-        return
-      }
-      const parts: string[] = []
-      if (p.broken > 0) parts.push(`исправлено файлов: ${p.broken}`)
-      if (p.mods_fixed > 0) parts.push(`модов восстановлено: ${p.mods_fixed}`)
-      if (p.mods_failed.length > 0) parts.push(`не вернулись: ${p.mods_failed.join(', ')}`)
-      setStage(
-        parts.length === 0
-          ? 'Файлы проверены — всё в порядке'
-          : `Файлы проверены: ${parts.join('; ')}`,
-      )
-    })
-    // Игра может быть запущена отсюда; по выходу сбрасываем «игра запущена»
-    void onGameExit(() => setStage(''))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const pickGv = (id: string) => {
     localStorage.setItem('daylo.packs.version', id)
     setGv(id)
-  }
-
-  const launch = async (id: string) => {
-    if (!online) return
-    const name = accName || nick.trim() || 'Player'
-    // Без аккаунта имя уйдёт в игру как есть — проверяем до запуска
-    if (!accName && !NICK_RE.test(name)) {
-      setError('ник: только латиница, цифры и подчёркивания, 1–16 символов')
-      return
-    }
-    setLaunching(id)
-    setError('')
-    try {
-      await launchInstance(id, name)
-      setStage('игра запущена')
-    } catch (e) {
-      setError(String(e))
-    } finally {
-      setLaunching('')
-    }
-  }
-
-  const remove = async (info: InstanceInfo) => {
-    if (!window.confirm(`Удалить сборку «${info.name}» вместе с мирами и модами?`)) return
-    setError('')
-    try {
-      await instanceDelete(info.id)
-      refresh()
-    } catch (e) {
-      setError(String(e))
-    }
-  }
-
-  // Проверка файлов: скан хешей, перекачка битого, возврат удалённых модов;
-  // прогресс идёт через pack-progress, итог — verify-done
-  const verify = async (id: string) => {
-    if (!online || packStage || verifying) return
-    setError('')
-    setVerifying(id)
-    try {
-      await instanceVerify(id)
-    } catch (e) {
-      setError(String(e))
-      setVerifying('')
-    }
   }
 
   const search = async () => {
@@ -377,11 +276,12 @@ export function Packs() {
   }
 
   const install = async (pv: PackVersionInfo) => {
-    if (!online || !picked || packStage) return
+    if (!online || !picked || inst.progress) return
     setError('')
     try {
       await packInstall(source, picked.id, pv.version_id, picked.icon_url)
-      setPackStage('установка сборки')
+      // Плейсхолдер до первого pack-progress из общего стора
+      useInstances.setState({ progress: 'установка сборки', packPct: 0 })
     } catch (e) {
       setError(String(e))
     }
@@ -414,7 +314,7 @@ export function Packs() {
             className={view === 'mine' ? 'tab on' : 'tab'}
             onClick={() => setView('mine')}
           >
-            Мои сборки{instances.length > 0 ? ` · ${instances.length}` : ''}
+            Мои сборки{inst.instances.length > 0 ? ` · ${inst.instances.length}` : ''}
           </button>
           <button
             className={view === 'catalog' ? 'tab on' : 'tab'}
@@ -426,20 +326,21 @@ export function Packs() {
       </div>
 
       {error && <p className="error">{error}</p>}
-      {packStage && (
+      {inst.error && <p className="error">{inst.error}</p>}
+      {inst.progress && (
         <Card className="pack-progress">
-          <p className="muted">{packStage}</p>
-          <ProgressBar progress={packStage === 'готово' ? 100 : packPct} size="lg" />
+          <p className="muted">{inst.progress}</p>
+          <ProgressBar progress={inst.packPct} size="lg" />
         </Card>
       )}
-      {stage && !packStage && <p className="muted">{stage}</p>}
+      {inst.stage && !inst.progress && <p className="muted">{inst.stage}</p>}
       {!online && <p className="muted">Ядро не запущено — режим браузера.</p>}
 
       {view === 'mine' && (
         <>
           <BuildOwnCard open={builder} onToggle={() => setBuilder(!builder)} />
           <AiBuild />
-          {instances.length === 0 ? (
+          {inst.instances.length === 0 ? (
             <Card className="mods-installed">
               <div className="mods-empty">
                 <div className="mods-empty-icon" />
@@ -453,56 +354,20 @@ export function Packs() {
             </Card>
           ) : (
             <div className="mods-grid">
-              {instances.map((info) => (
-                <Card key={info.id} className="mod-card pack-card">
-                  <div className="mod-head">
-                    {info.icon_url ? (
-                      <img
-                        className="mod-icon"
-                        src={info.icon_url}
-                        alt=""
-                        onError={(e) => (e.currentTarget.style.display = 'none')}
-                      />
-                    ) : (
-                      <div className="mod-icon empty" />
-                    )}
-                    <div>
-                      <div className="mod-title">{info.name}</div>
-                      <div className="muted">
-                        {info.mc_version}
-                        {info.loader ? ` · ${info.loader}` : ''}
-                        {info.pack_version ? ` · ${info.pack_version}` : ''}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="pack-badges">
-                    <span className="pack-badge">
-                      {SOURCE_LABEL[info.source] ?? (info.kind === 'modpack' ? 'сборка' : 'ванила')}
-                    </span>
-                    <span className="pack-badge">{info.ram_mb} МБ</span>
-                    {info.mods_count > 0 && (
-                      <span className="pack-badge">модов: {info.mods_count}</span>
-                    )}
-                  </div>
-                  <div className="mods-row-actions">
-                    <Button
-                      bg="#2f7d4f"
-                      onClick={() => void launch(info.id)}
-                      disabled={launching !== '' || verifying !== ''}
-                    >
-                      {launching === info.id ? 'Готовим…' : 'Играть'}
-                    </Button>
-                    <Button
-                      onClick={() => void verify(info.id)}
-                      disabled={launching !== '' || verifying !== '' || packStage !== ''}
-                    >
-                      {verifying === info.id ? 'Проверяем…' : 'Проверить'}
-                    </Button>
-                    <Button bg="#a03030" onClick={() => void remove(info)}>
-                      Удалить
-                    </Button>
-                  </div>
-                </Card>
+              {inst.instances.map((info) => (
+                <InstanceCard
+                  key={info.id}
+                  info={info}
+                  launching={inst.launching === info.id}
+                  verifying={inst.verifying === info.id}
+                  launchDisabled={inst.launching !== '' || inst.verifying !== ''}
+                  verifyDisabled={
+                    inst.launching !== '' || inst.verifying !== '' || inst.progress !== ''
+                  }
+                  onLaunch={() => void inst.launch(info.id)}
+                  onVerify={() => void inst.verify(info.id)}
+                  onRemove={() => void inst.remove(info)}
+                />
               ))}
             </div>
           )}
@@ -570,7 +435,7 @@ export function Packs() {
                     <Button
                       bg="#2f7d4f"
                       onClick={() => void install(pv)}
-                      disabled={packStage !== ''}
+                      disabled={inst.progress !== ''}
                     >
                       Установить
                     </Button>
