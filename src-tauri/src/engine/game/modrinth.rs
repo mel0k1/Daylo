@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
@@ -325,36 +325,47 @@ pub async fn resolve_untracked(instance: &str) -> usize {
         .map(|m| m.file.clone())
         .collect();
     let mut list = load_meta(&meta_path(instance));
-    let mut n = 0;
-    let mut cf_pending: Vec<(String, std::path::PathBuf)> = Vec::new();
+    let mods_dir = paths::instance_dir(instance).join("mods");
+    let mut pending: Vec<(String, std::path::PathBuf, String)> = Vec::new();
     for f in files {
         if known.contains(&f) || !f.ends_with(".jar") {
             continue;
         }
-        let path = paths::instance_dir(instance).join("mods").join(&f);
+        let path = mods_dir.join(&f);
         let Ok(hash) = http::sha1_of(&path) else {
             continue;
         };
-        let url = format!("{API}/version_file/{hash}?algorithm=sha1");
-        match http::text(&url).await {
-            Ok(body) => {
-                let Ok(raw) = serde_json::from_str::<VersionRaw>(&body) else {
-                    continue;
-                };
-                if raw.project_id.is_empty() {
-                    cf_pending.push((f, path));
-                    continue;
+        pending.push((f, path, hash));
+    }
+    let mut n = 0;
+    let mut cf_pending: Vec<(String, std::path::PathBuf)> = Vec::new();
+    // Опознание Modrinth батчами: один запрос на сотню файлов вместо сотни
+    for chunk in pending.chunks(100) {
+        let hashes: Vec<String> = chunk.iter().map(|(_, _, h)| h.clone()).collect();
+        match lookup_files(&hashes).await {
+            Ok(map) => {
+                for (f, p, h) in chunk {
+                    match map.get(h) {
+                        Some(raw) if !raw.project_id.is_empty() => {
+                            list.push(ModMeta {
+                                file: f.clone(),
+                                project_id: raw.project_id.clone(),
+                                version_id: raw.id.clone(),
+                                version_number: raw.version_number.clone(),
+                            });
+                            n += 1;
+                        }
+                        // Modrinth не знает jar — кандидат на опознание CurseForge
+                        _ => cf_pending.push((f.clone(), p.clone())),
+                    }
                 }
-                list.push(ModMeta {
-                    file: f,
-                    project_id: raw.project_id.clone(),
-                    version_id: raw.id.clone(),
-                    version_number: raw.version_number.clone(),
-                });
-                n += 1;
             }
-            // Modrinth не знает jar — кандидат на опознание CurseForge
-            Err(_) => cf_pending.push((f, path)),
+            // Батч не прошёл — вся пачка идёт на фингерпринты
+            Err(_) => {
+                for (f, p, _) in chunk {
+                    cf_pending.push((f.clone(), p.clone()));
+                }
+            }
         }
     }
     n += resolve_by_fingerprints(&mut list, &cf_pending).await;
@@ -362,6 +373,34 @@ pub async fn resolve_untracked(instance: &str) -> usize {
         let _ = save_meta(&meta_path(instance), &list);
     }
     n
+}
+
+#[derive(Serialize)]
+struct FilesQuery<'a> {
+    hashes: &'a [String],
+    algorithm: &'static str,
+}
+
+// Опознание файлов по sha1 одним запросом: map hash → версия
+async fn lookup_files(hashes: &[String]) -> Result<HashMap<String, VersionRaw>, String> {
+    let body = serde_json::to_string(&FilesQuery {
+        hashes,
+        algorithm: "sha1",
+    })
+    .map_err(|e| e.to_string())?;
+    let res = http::client()
+        .post(format!("{API}/version_files"))
+        .header("Content-Type", "application/json")
+        .body(body)
+        .send()
+        .await
+        .and_then(|r| r.error_for_status())
+        .map_err(|e| format!("запрос Modrinth: {e}"))?;
+    let text = res
+        .text()
+        .await
+        .map_err(|e| format!("ответ Modrinth: {e}"))?;
+    serde_json::from_str(&text).map_err(|e| format!("ответ Modrinth: {e}"))
 }
 
 // Неопознанные jar ищем фингерпринтами CurseForge батчами и дописываем в учёт
@@ -402,46 +441,128 @@ async fn resolve_by_fingerprints(
     n
 }
 
-// Свежие версии для учтённых модов; сеть по одному проекту — сбой пропускается.
-// Записи «cf:ид» идут в CurseForge, остальные в Modrinth.
+// Свежие версии для учтённых модов: Modrinth — батчем по sha1 всех файлов
+// (один запрос на сотню), CurseForge — параллельно по 8. Сбой одного
+// мода/батча пропускается, записи «cf:ид» идут в CurseForge.
 pub async fn check_updates(instance: &str, game_version: &str) -> Vec<ModUpdate> {
     resolve_untracked(instance).await;
     let metas = tracked(instance).await;
-    let mut out = Vec::new();
+    let (cf, mr): (Vec<ModMeta>, Vec<ModMeta>) = metas
+        .into_iter()
+        .partition(|m| m.project_id.starts_with("cf:"));
+    let mut out = check_modrinth_batch(instance, mr, game_version).await;
+    out.extend(check_curseforge_parallel(cf, game_version).await);
+    out
+}
+
+// Modrinth: локальный sha1 каждого учтённого файла → POST /version_files/update
+async fn check_modrinth_batch(
+    instance: &str,
+    metas: Vec<ModMeta>,
+    game_version: &str,
+) -> Vec<ModUpdate> {
+    let mods_dir = paths::instance_dir(instance).join("mods");
+    let mut jobs: Vec<(ModMeta, String)> = Vec::new();
     for m in metas {
-        if let Some(mod_id) = m.project_id.strip_prefix("cf:") {
-            if let Some(latest) = super::curseforge::latest_file(mod_id, game_version).await {
-                if latest.file_id != m.version_id {
-                    out.push(ModUpdate {
-                        file: m.file,
-                        project_id: m.project_id,
-                        current_version: m.version_number,
-                        latest_version_id: latest.file_id.clone(),
-                        latest_version_number: latest.display.clone(),
-                    });
-                }
-            }
-            continue;
-        }
         if m.project_id.is_empty() {
             continue;
         }
-        let Ok(vs) = versions(&m.project_id, game_version).await else {
+        let Ok(hash) = http::sha1_of(&mods_dir.join(&m.file)) else {
             continue;
         };
-        if let Some(latest) = vs.first() {
-            if latest.version_id != m.version_id {
-                out.push(ModUpdate {
-                    file: m.file,
-                    project_id: m.project_id,
-                    current_version: m.version_number,
-                    latest_version_id: latest.version_id.clone(),
-                    latest_version_number: latest.version_number.clone(),
-                });
+        jobs.push((m, hash));
+    }
+    let mut out = Vec::new();
+    for chunk in jobs.chunks(100) {
+        let hashes: Vec<String> = chunk.iter().map(|(_, h)| h.clone()).collect();
+        let Ok(map) = update_files(&hashes, game_version).await else {
+            continue;
+        };
+        for (m, h) in chunk {
+            if let Some(v) = map.get(h) {
+                if v.id != m.version_id {
+                    out.push(ModUpdate {
+                        file: m.file.clone(),
+                        project_id: m.project_id.clone(),
+                        current_version: m.version_number.clone(),
+                        latest_version_id: v.id.clone(),
+                        latest_version_number: v.version_number.clone(),
+                    });
+                }
             }
         }
     }
     out
+}
+
+#[derive(Serialize)]
+struct UpdateQuery<'a> {
+    hashes: &'a [String],
+    algorithm: &'static str,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    game_versions: Vec<String>,
+}
+
+// Свежие версии файлов одним запросом: map hash → версия
+async fn update_files(
+    hashes: &[String],
+    game_version: &str,
+) -> Result<HashMap<String, VersionRaw>, String> {
+    let gv = if game_version.is_empty() {
+        Vec::new()
+    } else {
+        vec![game_version.to_string()]
+    };
+    let body = serde_json::to_string(&UpdateQuery {
+        hashes,
+        algorithm: "sha1",
+        game_versions: gv,
+    })
+    .map_err(|e| e.to_string())?;
+    let res = http::client()
+        .post(format!("{API}/version_files/update"))
+        .header("Content-Type", "application/json")
+        .body(body)
+        .send()
+        .await
+        .and_then(|r| r.error_for_status())
+        .map_err(|e| format!("запрос Modrinth: {e}"))?;
+    let text = res
+        .text()
+        .await
+        .map_err(|e| format!("ответ Modrinth: {e}"))?;
+    serde_json::from_str(&text).map_err(|e| format!("ответ Modrinth: {e}"))
+}
+
+// CurseForge: latest_file по каждому моду, но восемь запросов одновременно
+async fn check_curseforge_parallel(metas: Vec<ModMeta>, game_version: &str) -> Vec<ModUpdate> {
+    use futures::stream::{self, StreamExt};
+    let jobs = metas.into_iter().filter_map(|m| {
+        let mod_id = m.project_id.strip_prefix("cf:")?.to_string();
+        Some((m, mod_id))
+    });
+    stream::iter(jobs)
+        .map(|(m, mod_id)| async move {
+            let latest = super::curseforge::latest_file(&mod_id, game_version).await;
+            (m, latest)
+        })
+        .buffer_unordered(8)
+        .filter_map(|(m, latest)| async move { latest.map(|l| (m, l)) })
+        .filter_map(|(m, l)| async move {
+            if l.file_id != m.version_id {
+                Some(ModUpdate {
+                    file: m.file,
+                    project_id: m.project_id,
+                    current_version: m.version_number,
+                    latest_version_id: l.file_id,
+                    latest_version_number: l.display,
+                })
+            } else {
+                None
+            }
+        })
+        .collect()
+        .await
 }
 
 // Ставит свежую версию мода и убирает старый файл
@@ -497,5 +618,39 @@ mod tests {
         std::fs::write(&path, "{").unwrap();
         assert!(load_meta(&path).is_empty());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn update_response_maps_hashes() {
+        let body = r#"{
+            "abc123": {"id": "v2", "project_id": "p1", "version_number": "1.1.0"},
+            "def456": {"id": "v1", "project_id": "p2", "version_number": "0.9"}
+        }"#;
+        let map: HashMap<String, VersionRaw> = serde_json::from_str(body).unwrap();
+        assert_eq!(map["abc123"].id, "v2");
+        assert_eq!(map["abc123"].version_number, "1.1.0");
+        assert_eq!(map["def456"].version_number, "0.9");
+    }
+
+    #[test]
+    fn update_query_omits_empty_game_versions() {
+        let hashes = vec!["h1".to_string()];
+        let empty = serde_json::to_string(&UpdateQuery {
+            hashes: &hashes,
+            algorithm: "sha1",
+            game_versions: Vec::new(),
+        })
+        .unwrap();
+        assert_eq!(empty, r#"{"hashes":["h1"],"algorithm":"sha1"}"#);
+        let with_gv = serde_json::to_string(&UpdateQuery {
+            hashes: &hashes,
+            algorithm: "sha1",
+            game_versions: vec!["1.21".into()],
+        })
+        .unwrap();
+        assert_eq!(
+            with_gv,
+            r#"{"hashes":["h1"],"algorithm":"sha1","game_versions":["1.21"]}"#
+        );
     }
 }
