@@ -52,8 +52,8 @@ export function Play() {
   const [installing, setInstalling] = useState(false)
   const [skinKey, setSkinKey] = useState(0)
   const [skinError, setSkinError] = useState('')
-  // Под аккаунтом Ely.by или Microsoft ник задаёт сервер авторизации, поле не редактируется
-  const accName = useAccount((s) => (s.info && s.info.mode !== 'offline' ? s.info.name : ''))
+  // Под аккаунтом (ely, msa или оффлайн-профилем) ник задаёт аккаунт, поле не редактируется
+  const accName = useAccount((s) => s.info?.name ?? '')
   const accMode = accName !== ''
   const accEly = useAccount((s) => s.info?.mode === 'ely')
 

@@ -284,6 +284,30 @@ pub async fn uninstall(instance: &str, file: &str) -> Result<(), String> {
     save_meta(&meta_path(instance), &list)
 }
 
+// Докачать моды из учёта, чьи файлы пропали (удалили руками, сбои диска).
+// Modrinth ставится по version_id, CurseForge (учёт "cf:ид") — по file_id;
+// сбой одного мода не роняет остальные. Возвращает (починено, ошибки)
+pub async fn repair_missing(instance: &str) -> (usize, Vec<String>) {
+    let metas = load_meta(&meta_path(instance));
+    let mut fixed = 0;
+    let mut errs: Vec<String> = Vec::new();
+    for m in &metas {
+        let path = paths::instance_dir(instance).join("mods").join(&m.file);
+        if path.exists() {
+            continue;
+        }
+        let res = match m.project_id.strip_prefix("cf:") {
+            Some(mod_id) => super::curseforge::install_mod(instance, mod_id, &m.version_id).await,
+            None => install(instance, &m.version_id).await,
+        };
+        match res {
+            Ok(()) => fixed += 1,
+            Err(e) => errs.push(format!("{}: {}", m.file, e)),
+        }
+    }
+    (fixed, errs)
+}
+
 // --- Учёт модов для обновлений ---
 
 fn meta_path(instance: &str) -> std::path::PathBuf {

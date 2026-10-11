@@ -16,6 +16,7 @@ import {
   instanceList,
   instanceCreate,
   instanceDelete,
+  instanceVerify,
   launchInstance,
   listVersions,
   loaderBuilds,
@@ -25,7 +26,7 @@ import {
   type PackVersionInfo,
   type InstanceInfo,
 } from '../ipc/commands'
-import { onPackProgress, onPackInstalled, onGameExit, type PackProgress } from '../ipc/events'
+import { onPackProgress, onPackInstalled, onVerifyDone, onGameExit, type PackProgress } from '../ipc/events'
 import { useGame, NICK_RE } from '../state/game'
 import { useAccount } from '../state/account'
 import { hasTauri } from '../ipc/tauri'
@@ -230,9 +231,11 @@ export function Packs() {
   const [busy, setBusy] = useState('')
   const [packStage, setPackStage] = useState('')
   const [packPct, setPackPct] = useState(0)
+  // id сборки, у которой идёт проверка файлов
+  const [verifying, setVerifying] = useState('')
 
   const nick = useGame((s) => s.nick)
-  const accName = useAccount((s) => (s.info && s.info.mode !== 'offline' ? s.info.name : ''))
+  const accName = useAccount((s) => s.info?.name ?? '')
 
   const online = hasTauri()
 
@@ -268,6 +271,25 @@ export function Packs() {
         setError('')
         setView('mine')
       }
+    })
+    void onVerifyDone((p) => {
+      setPackStage('')
+      setPackPct(0)
+      setVerifying('')
+      refresh()
+      if (p.error) {
+        setError(p.error)
+        return
+      }
+      const parts: string[] = []
+      if (p.broken > 0) parts.push(`исправлено файлов: ${p.broken}`)
+      if (p.mods_fixed > 0) parts.push(`модов восстановлено: ${p.mods_fixed}`)
+      if (p.mods_failed.length > 0) parts.push(`не вернулись: ${p.mods_failed.join(', ')}`)
+      setStage(
+        parts.length === 0
+          ? 'Файлы проверены — всё в порядке'
+          : `Файлы проверены: ${parts.join('; ')}`,
+      )
     })
     // Игра может быть запущена отсюда; по выходу сбрасываем «игра запущена»
     void onGameExit(() => setStage(''))
@@ -307,6 +329,20 @@ export function Packs() {
       refresh()
     } catch (e) {
       setError(String(e))
+    }
+  }
+
+  // Проверка файлов: скан хешей, перекачка битого, возврат удалённых модов;
+  // прогресс идёт через pack-progress, итог — verify-done
+  const verify = async (id: string) => {
+    if (!online || packStage || verifying) return
+    setError('')
+    setVerifying(id)
+    try {
+      await instanceVerify(id)
+    } catch (e) {
+      setError(String(e))
+      setVerifying('')
     }
   }
 
@@ -452,9 +488,15 @@ export function Packs() {
                     <Button
                       bg="#2f7d4f"
                       onClick={() => void launch(info.id)}
-                      disabled={launching !== ''}
+                      disabled={launching !== '' || verifying !== ''}
                     >
                       {launching === info.id ? 'Готовим…' : 'Играть'}
+                    </Button>
+                    <Button
+                      onClick={() => void verify(info.id)}
+                      disabled={launching !== '' || verifying !== '' || packStage !== ''}
+                    >
+                      {verifying === info.id ? 'Проверяем…' : 'Проверить'}
                     </Button>
                     <Button bg="#a03030" onClick={() => void remove(info)}>
                       Удалить

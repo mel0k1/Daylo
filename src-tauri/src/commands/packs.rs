@@ -201,6 +201,78 @@ pub async fn instance_delete(id: String) -> Result<(), String> {
         .map_err(|e| format!("удаление: {e}"))
 }
 
+// --- Проверка файлов сборки ---
+
+#[derive(Serialize, Clone)]
+pub struct VerifyDone {
+    pub instance: String,
+    pub error: Option<String>,
+    // Битых файлов нашёл скан и перекачал
+    pub broken: u64,
+    // Учтённых модов восстановлено / не удалось
+    pub mods_fixed: usize,
+    pub mods_failed: Vec<String>,
+}
+
+// Долгая проверка: скан хешей клиента/библиотек/ассетов, перекачка битого,
+// восстановление удалённых учтённых модов. Прогресс — pack-progress,
+// итог — verify-done. Ничего не возвращает: результат приходит событием
+#[tauri::command]
+pub async fn instance_verify(app: tauri::AppHandle, id: String) -> Result<(), String> {
+    if !engine::core::paths::instance_dir(&id).is_dir() {
+        return Err("сборка не найдена".into());
+    }
+    tauri::async_runtime::spawn(async move {
+        let cfg = engine::game::config::load(&id).await;
+        let version = if cfg.launch_version.is_empty() {
+            id.clone()
+        } else {
+            cfg.launch_version
+        };
+
+        let mut done = match engine::game::install::verify_version(app.clone(), &id, &version).await
+        {
+            Ok(broken) => VerifyDone {
+                instance: id.clone(),
+                error: None,
+                broken,
+                mods_fixed: 0,
+                mods_failed: Vec::new(),
+            },
+            Err(e) => {
+                let _ = app.emit(
+                    "verify-done",
+                    VerifyDone {
+                        instance: id,
+                        error: Some(e),
+                        broken: 0,
+                        mods_fixed: 0,
+                        mods_failed: Vec::new(),
+                    },
+                );
+                return;
+            }
+        };
+
+        // Моды: возвращаем удалённые по учёту, если папка mods есть
+        if engine::core::paths::instance_dir(&id).join("mods").is_dir() {
+            let _ = app.emit(
+                "pack-progress",
+                serde_json::json!({
+                    "stage": "моды", "done": 0, "total": 1,
+                    "error": null, "version": id,
+                }),
+            );
+            let (fixed, failed) = engine::game::modrinth::repair_missing(&id).await;
+            done.mods_fixed = fixed;
+            done.mods_failed = failed;
+        }
+
+        let _ = app.emit("verify-done", done);
+    });
+    Ok(())
+}
+
 // --- Моды CurseForge ---
 
 #[tauri::command]

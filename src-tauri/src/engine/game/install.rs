@@ -22,6 +22,9 @@ pub struct InstallProgress {
 struct Reporter {
     app: tauri::AppHandle,
     version: String,
+    // Куда уходит прогресс: установка — install-progress,
+    // проверка файлов — pack-progress (живёт в каталоге сборок)
+    event: &'static str,
     last: AtomicUsize,
 }
 
@@ -30,6 +33,18 @@ impl Reporter {
         Self {
             app,
             version: version.into(),
+            event: "install-progress",
+            last: AtomicUsize::new(usize::MAX),
+        }
+    }
+
+    // Проверка файлов запускается из каталога сборок: прогресс уходит в
+    // pack-progress, чтобы не задевать экран запуска (install-progress)
+    fn for_verify(app: tauri::AppHandle, version: &str) -> Self {
+        Self {
+            app,
+            version: version.into(),
+            event: "pack-progress",
             last: AtomicUsize::new(usize::MAX),
         }
     }
@@ -41,7 +56,7 @@ impl Reporter {
             return;
         }
         let _ = self.app.emit(
-            "install-progress",
+            self.event,
             InstallProgress {
                 version: self.version.clone(),
                 stage: stage.into(),
@@ -55,7 +70,7 @@ impl Reporter {
 
 fn fail(rep: &Reporter, e: String) -> String {
     let _ = rep.app.emit(
-        "install-progress",
+        rep.event,
         InstallProgress {
             version: rep.version.clone(),
             stage: "ошибка".into(),
@@ -90,11 +105,198 @@ pub async fn ensure_version(
     if let Err(e) = natives(version_id, &vjson).await {
         return Err(fail(&rep, e));
     }
-    if let Err(e) = assets(&rep, version_id, &vjson).await {
+    if let Err(e) = assets(&rep, version_id, &vjson, false).await {
         return Err(fail(&rep, e));
     }
     rep.emit("готово", 1, 1);
     Ok(vjson)
+}
+
+// --- Проверка файлов установленной версии ---
+
+// Битый файл: отсутствует, не совпадает размер или хеш.
+// Хеш-граница — sha1; для файлов без известного хеша сверяем только размер/наличие
+fn broken_file(to: &Path, sha1: Option<&str>, size: Option<u64>) -> bool {
+    if !to.exists() {
+        return true;
+    }
+    if let Some(want) = size {
+        match std::fs::metadata(to) {
+            Ok(m) if m.len() == want => {}
+            _ => return true,
+        }
+    }
+    if let Some(want) = sha1 {
+        match http::sha1_of(to) {
+            Ok(got) if got.eq_ignore_ascii_case(want) => {}
+            _ => return true,
+        }
+    }
+    false
+}
+
+// Индекс ассетов: id индекса, флаг virtual и таблица objects (имя → {hash, size})
+async fn asset_objects(
+    v: &VersionJson,
+) -> Result<(String, bool, serde_json::Map<String, serde_json::Value>), String> {
+    let idx = v
+        .asset_index
+        .as_ref()
+        .ok_or("в version json нет asset index")?;
+    let index_file = paths::assets_dir()
+        .join("indexes")
+        .join(format!("{}.json", idx.id));
+    let cached_ok = tokio::fs::read_to_string(&index_file)
+        .await
+        .ok()
+        .filter(|_| {
+            idx.sha1.as_deref().is_none_or(|want| {
+                http::sha1_of(&index_file)
+                    .map(|got| got.eq_ignore_ascii_case(want))
+                    .unwrap_or(false)
+            })
+        });
+    let body = match cached_ok {
+        Some(b) => b,
+        None => {
+            let b = http::text_mirrored(&idx.url).await?;
+            tokio::fs::create_dir_all(index_file.parent().unwrap())
+                .await
+                .map_err(|e| format!("папка индексов: {e}"))?;
+            tokio::fs::write(&index_file, &b)
+                .await
+                .map_err(|e| format!("сохранение индекса: {e}"))?;
+            b
+        }
+    };
+    let index: serde_json::Value =
+        serde_json::from_str(&body).map_err(|e| format!("разбор asset index: {e}"))?;
+    let objects = index
+        .get("objects")
+        .and_then(|o| o.as_object())
+        .ok_or("asset index без objects")?
+        .clone();
+    let is_virtual = index
+        .get("virtual")
+        .and_then(|x| x.as_bool())
+        .unwrap_or(false);
+    Ok((idx.id.clone(), is_virtual, objects))
+}
+
+// Скан клиентского jar: бит или нет
+async fn scan_client(v: &VersionJson, version_id: &str) -> u64 {
+    let Some(c) = v.downloads.client.as_ref() else {
+        return 0;
+    };
+    let id = jar_id(v, version_id);
+    let to = paths::version_dir(&id).join(format!("{id}.jar"));
+    u64::from(broken_file(&to, c.sha1.as_deref(), c.size))
+}
+
+// Скан библиотек параллельно по 16: считаем битые, чинит потом установка
+async fn scan_libraries(v: &VersionJson) -> u64 {
+    let tasks: Vec<_> = allowed_libraries(v)
+        .iter()
+        .filter_map(|lib| lib_artifact(lib).map(|art| (lib, art)))
+        .map(|(lib, art)| {
+            let path = art
+                .path
+                .clone()
+                .unwrap_or_else(|| mcmeta::maven_path(&lib.name));
+            let to = paths::libraries_dir().join(path);
+            let sha1 = art.sha1.clone();
+            let size = art.size;
+            async move { broken_file(&to, sha1.as_deref(), size) }
+        })
+        .collect();
+    let mut stream = futures::stream::iter(tasks).buffer_unordered(16);
+    let mut broken = 0u64;
+    while let Some(is_broken) = stream.next().await {
+        if is_broken {
+            broken += 1;
+        }
+    }
+    broken
+}
+
+// Скан ассетов по хешам индекса: у каждого объекта известен sha1
+async fn scan_assets(rep: &Reporter, v: &VersionJson) -> Result<(u64, u64), String> {
+    if v.asset_index.is_none() {
+        return Ok((0, 0));
+    }
+    let (_id, _virtual, objects) = asset_objects(v).await?;
+    let total = objects.len() as u64;
+    rep.emit("проверка ассетов", 0, total);
+    let mut broken = 0u64;
+    let mut seen = 0u64;
+    for obj in objects.values() {
+        let Some(hash) = obj.get("hash").and_then(|h| h.as_str()) else {
+            return Err("объект без хеша".into());
+        };
+        let file = paths::assets_dir()
+            .join("objects")
+            .join(format!("{}/{}", &hash[..2], hash));
+        if broken_file(&file, Some(hash), None) {
+            broken += 1;
+        }
+        seen += 1;
+        rep.emit("проверка ассетов", seen, total);
+    }
+    Ok((total, broken))
+}
+
+// Проверка файлов версии: скан по хешам, битое докачивается штатной установкой.
+// label — имя сборки в событиях, version_id — чью версию проверяем.
+// Возвращает число битых файлов, найденных сканом
+pub async fn verify_version(
+    app: tauri::AppHandle,
+    label: &str,
+    version_id: &str,
+) -> Result<u64, String> {
+    let rep = Arc::new(Reporter::for_verify(app, label));
+    let vjson = match version_json(version_id).await {
+        Ok(v) => v,
+        Err(e) => return Err(fail(&rep, e)),
+    };
+
+    rep.emit("проверка клиента", 0, 1);
+    let client_broken = scan_client(&vjson, version_id).await;
+    rep.emit("проверка клиента", 1, 1);
+
+    rep.emit("проверка библиотек", 0, 1);
+    let libs_broken = scan_libraries(&vjson).await;
+    rep.emit("проверка библиотек", 1, 1);
+
+    let (_total, assets_broken) = match scan_assets(&rep, &vjson).await {
+        Ok(x) => x,
+        Err(e) => return Err(fail(&rep, e)),
+    };
+    let broken = client_broken + libs_broken + assets_broken;
+
+    if broken > 0 {
+        // Штатная установка перекачивает только файлы, не прошедшие проверку
+        rep.emit("клиент", 0, 1);
+        if let Err(e) = client_jar(version_id, &vjson).await {
+            return Err(fail(&rep, e));
+        }
+        rep.emit("клиент", 1, 1);
+        if let Err(e) = libraries(&rep, &vjson).await {
+            return Err(fail(&rep, e));
+        }
+        if let Err(e) = natives(version_id, &vjson).await {
+            return Err(fail(&rep, e));
+        }
+        if let Err(e) = assets(&rep, version_id, &vjson, true).await {
+            return Err(fail(&rep, e));
+        }
+    } else if !natives_dir(version_id, &vjson).exists() {
+        // Файлы целы, но нативы не распакованы — извлекаем из библиотек
+        if let Err(e) = natives(version_id, &vjson).await {
+            return Err(fail(&rep, e));
+        }
+    }
+    rep.emit("готово", 1, 1);
+    Ok(broken)
 }
 
 pub async fn version_json(version_id: &str) -> Result<VersionJson, String> {
@@ -308,43 +510,17 @@ fn extract_native(jar: &Path, dest: &Path, exclude: Vec<String>) -> Result<(), S
     Ok(())
 }
 
-async fn assets(rep: &Reporter, version_id: &str, v: &VersionJson) -> Result<(), String> {
-    let idx = match &v.asset_index {
-        Some(i) => i,
-        None => return Ok(()),
-    };
-    let index_file = paths::assets_dir()
-        .join("indexes")
-        .join(format!("{}.json", idx.id));
-    let cached_ok = tokio::fs::read_to_string(&index_file)
-        .await
-        .ok()
-        .filter(|_| {
-            idx.sha1.as_deref().is_none_or(|want| {
-                http::sha1_of(&index_file)
-                    .map(|got| got.eq_ignore_ascii_case(want))
-                    .unwrap_or(false)
-            })
-        });
-    let body = match cached_ok {
-        Some(b) => b,
-        None => {
-            let b = http::text_mirrored(&idx.url).await?;
-            tokio::fs::create_dir_all(index_file.parent().unwrap())
-                .await
-                .map_err(|e| format!("папка индексов: {e}"))?;
-            tokio::fs::write(&index_file, &b)
-                .await
-                .map_err(|e| format!("сохранение индекса: {e}"))?;
-            b
-        }
-    };
-    let index: serde_json::Value =
-        serde_json::from_str(&body).map_err(|e| format!("разбор asset index: {e}"))?;
-    let objects = index
-        .get("objects")
-        .and_then(|o| o.as_object())
-        .ok_or("asset index без objects")?;
+// Ассеты: недостающие докачиваем; deep — ещё и битые (хеш не сошёлся)
+async fn assets(
+    rep: &Reporter,
+    version_id: &str,
+    v: &VersionJson,
+    deep: bool,
+) -> Result<(), String> {
+    if v.asset_index.is_none() {
+        return Ok(());
+    }
+    let (idx_id, is_virtual, objects) = asset_objects(v).await?;
 
     let mut need: Vec<String> = Vec::new();
     for obj in objects.values() {
@@ -356,7 +532,15 @@ async fn assets(rep: &Reporter, version_id: &str, v: &VersionJson) -> Result<(),
         let file = paths::assets_dir()
             .join("objects")
             .join(format!("{}/{}", &hash[..2], hash));
-        if !file.exists() {
+        let stale = if !file.exists() {
+            true
+        } else if deep {
+            // Файл есть, но хеш не сошёлся — докачиваем
+            broken_file(&file, Some(&hash), None)
+        } else {
+            false
+        };
+        if stale {
             need.push(hash);
         }
     }
@@ -398,8 +582,8 @@ async fn assets(rep: &Reporter, version_id: &str, v: &VersionJson) -> Result<(),
     }
 
     // Старые индексы требуют копию в assets/virtual/<id>
-    if index.get("virtual").and_then(|x| x.as_bool()) == Some(true) {
-        let virtual_dir = paths::assets_dir().join("virtual").join(&idx.id);
+    if is_virtual {
+        let virtual_dir = paths::assets_dir().join("virtual").join(&idx_id);
         for (name, obj) in objects {
             let hash = obj.get("hash").and_then(|h| h.as_str()).unwrap_or_default();
             let src = paths::assets_dir()
@@ -437,4 +621,35 @@ pub fn classpath(v: &VersionJson, version_id: &str) -> Vec<PathBuf> {
 // Папка с распакованными нативами версии
 pub fn natives_dir(version_id: &str, _v: &VersionJson) -> PathBuf {
     paths::version_dir(version_id).join("natives")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Скан «битый/целый»: хеш, размер и отсутствие файла
+    #[test]
+    fn broken_file_detection() {
+        let dir = std::env::temp_dir().join(format!("daylo-verify-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("x.bin");
+        std::fs::write(&f, b"hello").unwrap();
+        let good = http::sha1_of(&f).unwrap();
+        // Целый: хеш и размер сходятся
+        assert!(!broken_file(&f, Some(&good), Some(5)));
+        // Чужой хеш
+        assert!(broken_file(
+            &f,
+            Some("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+            None
+        ));
+        // Не тот размер
+        assert!(broken_file(&f, Some(&good), Some(9)));
+        // Файла нет
+        assert!(broken_file(&dir.join("nope.bin"), None, None));
+        // Без известных хеша и размера существующий файл считаем целым
+        assert!(!broken_file(&f, None, None));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

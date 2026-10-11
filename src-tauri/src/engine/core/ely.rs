@@ -212,9 +212,13 @@ async fn refresh(refresh_token: &str) -> Result<Tokens, String> {
     tokens_of(&v).ok_or_else(|| "ely.by не отдал refresh-токен".into())
 }
 
-// Учётка из настроек с автообновлением истёкшего токена
+// Активная учётка с автообновлением истёкшего токена;
+// оффлайн- и msa-профили сюда не попадают
 pub async fn current_account() -> Option<Account> {
-    let acc = settings::load().account?;
+    let acc = settings::active()?;
+    if acc.provider != "ely" {
+        return None;
+    }
     if acc.expires_at > now() + 60 || acc.refresh_token.is_empty() {
         return Some(acc);
     }
@@ -230,15 +234,15 @@ pub async fn current_account() -> Option<Account> {
                 expires_at: t.expires_at,
                 ..acc.clone()
             };
-            let _ = settings::update(|s| s.account = Some(updated.clone()));
+            let _ = settings::update(|s| {
+                if let Some(slot) = s.accounts.iter_mut().find(|a| a.uuid == updated.uuid) {
+                    *slot = updated.clone();
+                }
+            });
             Some(updated)
         }
         Err(_) => None,
     }
-}
-
-pub async fn logout() -> Result<(), String> {
-    settings::update(|s| s.account = None)
 }
 
 // Загрузка скина в аккаунт Ely.by: модель classic (4px руки) или slim (3px)

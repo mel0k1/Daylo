@@ -253,9 +253,9 @@ pub async fn device_poll(device_code: &str) -> Result<Poll, String> {
     ))
 }
 
-// Учётка из настроек с обновлением токена через refresh-цепочку
+// Активная учётка с обновлением токена через refresh-цепочку
 pub async fn current_account() -> Option<Account> {
-    let acc = settings::load().account?;
+    let acc = settings::active()?;
     if acc.provider != "msa" {
         return None;
     }
@@ -273,7 +273,11 @@ pub async fn current_account() -> Option<Account> {
     let (uhs, xsts_token) = xsts_chain(&t.access_token).await.ok()?;
     match minecraft_account(&(uhs, xsts_token), t.refresh_token).await {
         Ok(updated) => {
-            let _ = settings::update(|s| s.account = Some(updated.clone()));
+            let _ = settings::update(|s| {
+                if let Some(slot) = s.accounts.iter_mut().find(|a| a.uuid == updated.uuid) {
+                    *slot = updated.clone();
+                }
+            });
             Some(updated)
         }
         Err(_) => None,

@@ -1,11 +1,15 @@
 import { create } from 'zustand'
 import {
+  accountAddOffline,
   accountInfo,
+  accountList,
+  accountLogout,
+  accountSwitch,
   elyLoginPoll,
   elyLoginStart,
-  elyLogout,
   msaLoginPoll,
   msaLoginStart,
+  type AccountBrief,
   type AccountInfo,
 } from '../ipc/commands'
 import { hasTauri } from '../ipc/tauri'
@@ -23,25 +27,34 @@ interface LoginFlow {
 
 interface AccountState {
   info: AccountInfo | null
+  // Все сохранённые аккаунты: ely, msa и оффлайн-профили
+  accounts: AccountBrief[]
   login: LoginFlow | null
   error: string
   init: () => Promise<void>
   startLogin: (provider: Provider) => Promise<void>
   cancelLogin: () => void
-  logout: () => Promise<void>
+  // Сменить активный аккаунт
+  switchTo: (uuid: string) => Promise<void>
+  // Убрать аккаунт из списка
+  logout: (uuid: string) => Promise<void>
+  // Добавить оффлайн-профиль по нику
+  addOffline: (nick: string) => Promise<boolean>
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 export const useAccount = create<AccountState>((set, get) => ({
   info: null,
+  accounts: [],
   login: null,
   error: '',
 
   init: async () => {
     if (!hasTauri()) return
     try {
-      set({ info: await accountInfo(), error: '' })
+      const [info, accounts] = await Promise.all([accountInfo(), accountList()])
+      set({ info, accounts, error: '' })
     } catch (e) {
       set({ error: String(e) })
     }
@@ -70,13 +83,36 @@ export const useAccount = create<AccountState>((set, get) => ({
 
   cancelLogin: () => set({ login: null }),
 
-  logout: async () => {
+  switchTo: async (uuid) => {
+    set({ error: '' })
     try {
-      await elyLogout()
+      await accountSwitch(uuid)
+      await get().init()
     } catch (e) {
       set({ error: String(e) })
     }
-    await get().init()
+  },
+
+  logout: async (uuid) => {
+    set({ error: '' })
+    try {
+      await accountLogout(uuid)
+      await get().init()
+    } catch (e) {
+      set({ error: String(e) })
+    }
+  },
+
+  addOffline: async (nick) => {
+    set({ error: '' })
+    try {
+      await accountAddOffline(nick)
+      await get().init()
+      return true
+    } catch (e) {
+      set({ error: String(e) })
+      return false
+    }
   },
 }))
 

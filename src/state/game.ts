@@ -119,9 +119,11 @@ export const useGame = create<GameState>((set, get) => ({
     const { version, nick, busy, playing } = get()
     if (busy || playing || !version) return
     const acc = useAccount.getState().info
-    const name = acc?.mode === 'ely' && acc.name ? acc.name : nick.trim() || 'Player'
+    // Имя активного аккаунта (ely, msa или оффлайн-профиль) важнее поля ника
+    const accName = acc?.name ?? ''
+    const name = accName || nick.trim() || 'Player'
     // Гард для UX: без аккаунта имя уйдёт в игру как есть, ядро его отвергнет
-    if ((!acc || acc.mode === 'offline') && !NICK_RE.test(name)) {
+    if (!accName && !NICK_RE.test(name)) {
       set({ error: 'ник: только латиница, цифры и подчёркивания, 1–16 символов' })
       return
     }

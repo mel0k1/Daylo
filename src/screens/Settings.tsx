@@ -16,14 +16,24 @@ import {
 } from '../ipc/commands'
 import { onPackProgress, onPackImported, type PackProgress } from '../ipc/events'
 import { useAccount } from '../state/account'
-import { useGame } from '../state/game'
+import { useGame, NICK_RE } from '../state/game'
 import { useUi } from '../state/ui'
 import { hasTauri } from '../ipc/tauri'
 
-// Вход через Ely.by или Microsoft: код устройства, браузер, ожидание подтверждения
+// Подписи провайдеров в карточке аккаунта
+const MODE_LABEL: Record<string, string> = {
+  msa: 'Microsoft',
+  ely: 'ely.by',
+  offline: 'оффлайн',
+}
+
+// Аккаунтов может быть несколько (ely, msa, оффлайн-профили):
+// список с переключением кликом, активный подсвечен
 function AccountCard() {
-  const { info, login, error, init, startLogin, cancelLogin, logout } = useAccount()
+  const { info, accounts, login, error, init, startLogin, cancelLogin, switchTo, logout, addOffline } =
+    useAccount()
   const [copied, setCopied] = useState(false)
+  const [nick, setNick] = useState('')
 
   useEffect(() => {
     void init()
@@ -40,24 +50,40 @@ function AccountCard() {
     }
   }
 
+  // Оффлайн-профиль по нику: uuid выводится как в ваниле, повторное
+  // добавление того же ника обновляет существующую запись
+  const addOfflineNick = async () => {
+    const n = nick.trim()
+    if (!NICK_RE.test(n)) return
+    if (await addOffline(n)) setNick('')
+  }
+
   const providerLabel = login?.provider === 'msa' ? 'Microsoft' : 'Ely.by'
 
   return (
     <Card className="play-card">
       <h2 className="retro-title">Аккаунт</h2>
-      {info && info.mode !== 'offline' ? (
+      {info?.name ? (
         <div className="acc-row">
           <div className="acc-info">
             <span>{info.name}</span>
             <span className="muted acc-uuid">
-              {info.mode === 'msa' ? 'Microsoft' : 'ely.by'} · {info.uuid}
+              {MODE_LABEL[info.mode]} · {info.uuid}
             </span>
           </div>
-          <Button bg="#a03030" onClick={() => void logout()}>
+          <Button bg="#a03030" onClick={() => void logout(info.uuid)}>
             Выйти
           </Button>
         </div>
-      ) : login ? (
+      ) : (
+        !login && (
+          <p className="muted">
+            Оффлайн-режим без авторизации. Добавь оффлайн-профиль по нику или войди в аккаунт —
+            профили сохраняются, переключаться можно в любой момент.
+          </p>
+        )
+      )}
+      {login ? (
         <div className="ely-login">
           <p>Введите код на странице входа {providerLabel}:</p>
           <div className="user-code">{login.userCode}</div>
@@ -73,19 +99,54 @@ function AccountCard() {
           </Button>
         </div>
       ) : (
-        <div className="ely-login">
-          <p className="muted">
-            Оффлайн-режим без авторизации. Аккаунт Ely.by даст скины и вход на серверы с Ely.by,
-            аккаунт Microsoft — лицензионный вход на любые серверы.
-          </p>
-          <div className="play-row">
-            <Button bg="#2f7d4f" onClick={() => void startLogin('ely')}>
-              Войти через Ely.by
-            </Button>
-            <Button onClick={() => void startLogin('msa')}>Войти через Microsoft</Button>
-          </div>
+        <div className="play-row">
+          <Button bg="#2f7d4f" onClick={() => void startLogin('ely')}>
+            Войти через Ely.by
+          </Button>
+          <Button onClick={() => void startLogin('msa')}>Войти через Microsoft</Button>
         </div>
       )}
+      {accounts.length > 0 && (
+        <div className="acc-list">
+          {accounts.map((a) => (
+            <div key={a.uuid} className={a.active ? 'acc-item on' : 'acc-item'}>
+              <button
+                className="acc-pick"
+                onClick={() => !a.active && void switchTo(a.uuid)}
+                title={a.active ? 'Активный аккаунт' : 'Сделать активным'}
+              >
+                <span>{a.name}</span>
+                <span className="muted">{MODE_LABEL[a.mode]}</span>
+              </button>
+              {!a.active && (
+                <button
+                  className="acc-drop"
+                  onClick={() => void logout(a.uuid)}
+                  title="Убрать аккаунт"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="play-row">
+        <Input
+          value={nick}
+          maxLength={16}
+          placeholder="Ник оффлайн-профиля"
+          onChange={(e) => setNick(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && void addOfflineNick()}
+        />
+        <Button
+          bg="#2f7d4f"
+          onClick={() => void addOfflineNick()}
+          disabled={!NICK_RE.test(nick.trim())}
+        >
+          Добавить
+        </Button>
+      </div>
       {error && <p className="error">{error}</p>}
     </Card>
   )

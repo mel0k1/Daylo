@@ -13,6 +13,9 @@ pub fn client() -> &'static reqwest::Client {
         reqwest::Client::builder()
             .user_agent(concat!("Daylo/", env!("CARGO_PKG_VERSION")))
             .connect_timeout(Duration::from_secs(20))
+            // Read-timeout между чанками тела: молчаливый сервер не подвешивает
+            // закачку навечно, при этом большие файлы скачаются без обрывов
+            .read_timeout(Duration::from_secs(30))
             .build()
             .expect("не удалось создать http-клиент")
     })

@@ -53,7 +53,7 @@ fn stopping() -> &'static std::sync::Mutex<HashSet<String>> {
 }
 
 // UUID оффлайн-профиля, как в ваниле: md5 от "OfflinePlayer:<ник>"
-fn offline_uuid(nick: &str) -> String {
+pub fn offline_uuid(nick: &str) -> String {
     let mut h = Md5::new();
     h.update(format!("OfflinePlayer:{nick}").as_bytes());
     let mut d = [0u8; 16];
@@ -73,7 +73,7 @@ fn offline_uuid(nick: &str) -> String {
 
 // Ник оффлайна идёт в игру и на серверы как есть: латиница, цифры и
 // подчёркивания, 1..=16 символов — иначе сервер отвергнет вход
-fn ok_nick(nick: &str) -> bool {
+pub fn ok_nick(nick: &str) -> bool {
     let n = nick.chars().count();
     n > 0 && n <= 16 && nick.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
@@ -134,36 +134,46 @@ async fn launch_body(
     instance: &str,
     slot: &Arc<Mutex<Option<tokio::process::Child>>>,
 ) -> Result<(), String> {
-    // Провайдер аккаунта выбирает путь обновления токена и user_type:
-    // Microsoft → "msa", Ely.by → "mojang" через authlib-injector, нет — оффлайн.
+    // Провайдер активного аккаунта выбирает путь обновления токена и user_type:
+    // Microsoft → "msa", Ely.by → "mojang" через authlib-injector, оффлайн-профиль
+    // — "legacy", нет аккаунта — оффлайн с ником из окна ввода.
     // Отсюда же берём размер окна игры, заданный в настройках
     let st = settings::load();
-    let provider = st
-        .account
+    let saved = st.active();
+    let provider = saved
         .as_ref()
         .map(|a| a.provider.clone())
         .unwrap_or_default();
-    let acc = if provider == "msa" {
-        msa::current_account().await
-    } else {
-        ely::current_account().await
+    let acc = match provider.as_str() {
+        "msa" => msa::current_account().await,
+        "ely" => ely::current_account().await,
+        _ => saved, // оффлайн-профиль или его отсутствие
     };
-    let (player, uuid, token, user_type) = match &acc {
-        Some(a) => (
+    let (player, uuid, token, user_type, offline) = match &acc {
+        Some(a) if a.provider != "offline" => (
             a.name.clone(),
             a.uuid.clone(),
             a.access_token.clone(),
             if provider == "msa" { "msa" } else { "mojang" },
+            false,
+        ),
+        Some(a) => (
+            a.name.clone(),
+            a.uuid.clone(),
+            "0".to_string(),
+            "legacy",
+            true,
         ),
         None => (
             nick.trim().to_string(),
             offline_uuid(nick.trim()),
             "0".to_string(),
             "legacy",
+            true,
         ),
     };
     // Оффлайн-ник проверяем до тяжёлой подготовки: мусор до докачки не доводим
-    if acc.is_none() && !ok_nick(&player) {
+    if offline && !ok_nick(&player) {
         return Err("ник: только латиница, цифры и подчёркивания, 1–16 символов".into());
     }
     let _ = app.emit(

@@ -33,16 +33,39 @@ pub struct Account {
     pub refresh_token: String,
     // Момент истечения access-токена, секунды от эпохи
     pub expires_at: u64,
-    // Источник авторизации: "ely" | "msa"; в старых файлах пусто — значит ely
+    // Источник авторизации: "ely" | "msa" | "offline";
+    // в старых файлах пусто — значит ely
     #[serde(default)]
     pub provider: String,
+}
+
+// Провайдеры, которые понимает загрузка; пустое значение = ely (старые файлы)
+fn known_provider(p: &str) -> bool {
+    matches!(p, "" | "ely" | "msa" | "offline")
+}
+
+// Структурная проверка одной учётки: имя/uuid/токены в разумных рамках
+fn account_plausible(a: &Account) -> bool {
+    !a.name.is_empty()
+        && a.name.len() <= 16
+        && a.uuid.len() == 36
+        && a.access_token.len() <= MAX_TOKEN_LEN
+        && a.refresh_token.len() <= MAX_TOKEN_LEN
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Settings {
     pub use_mirrors: bool,
     pub servers: Vec<String>,
+    // Старое одиночное поле: читается ради миграции, при записи пропадает
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account: Option<Account>,
+    // Все сохранённые аккаунты: ely, msa и оффлайн-профили
+    #[serde(default)]
+    pub accounts: Vec<Account>,
+    // Активный аккаунт по uuid; None при пустом списке
+    #[serde(default)]
+    pub active_account: Option<String>,
     // Переопределение client_id приложения Ely.by
     pub ely_client_id: Option<String>,
     // Ключ API CurseForge для официального эндпоинта, если зеркало недоступно
@@ -67,6 +90,8 @@ impl Default for Settings {
             use_mirrors: true,
             servers: Vec::new(),
             account: None,
+            accounts: Vec::new(),
+            active_account: None,
             ely_client_id: None,
             cf_api_key: None,
             msa_client_id: None,
@@ -131,45 +156,116 @@ pub fn load() -> Settings {
     std::fs::read_to_string(file())
         .ok()
         .and_then(|t| serde_json::from_str(&t).ok())
-        .map(|s: Settings| {
-            // Файл писали мы, но страховка от мусора лишней не бывает
-            let mut servers: Vec<String> = s
-                .servers
-                .iter()
-                .filter_map(|x| normalize_server(x))
-                .collect();
-            servers.truncate(MAX_SERVERS);
-            servers.dedup();
-            Settings {
-                use_mirrors: s.use_mirrors,
-                servers,
-                account: s
-                    .account
-                    .filter(|a| {
-                        !a.name.is_empty()
-                            && a.name.len() <= 16
-                            && a.uuid.len() == 36
-                            && a.access_token.len() <= MAX_TOKEN_LEN
-                            && a.refresh_token.len() <= MAX_TOKEN_LEN
-                    })
-                    .filter(|a| matches!(a.provider.as_str(), "ely" | "msa"))
-                    .map(|a| Account {
-                        provider: if a.provider.is_empty() {
-                            "ely".into()
-                        } else {
-                            a.provider
-                        },
-                        ..a
-                    }),
-                ely_client_id: s.ely_client_id.filter(|c| !c.is_empty() && c.len() <= 128),
-                cf_api_key: s.cf_api_key.filter(|c| !c.is_empty() && c.len() <= 256),
-                msa_client_id: s.msa_client_id.filter(|c| ok_guid(c)),
-                game_width: clamp_window(s.game_width, s.game_height).0,
-                game_height: clamp_window(s.game_width, s.game_height).1,
-                game_fullscreen: s.game_fullscreen,
-            }
-        })
+        .map(sanitize)
         .unwrap_or_default()
+}
+
+// Чистка распарсенного файла: файл писали мы, но страховка от мусора
+// лишней не бывает. Выделена отдельно — проверяется тестами без файловой системы.
+fn sanitize(s: Settings) -> Settings {
+    let mut servers: Vec<String> = s
+        .servers
+        .iter()
+        .filter_map(|x| normalize_server(x))
+        .collect();
+    servers.truncate(MAX_SERVERS);
+    servers.dedup();
+
+    // Список аккаунтов: валидные, провайдер известен, без дублей по uuid
+    let mut accounts: Vec<Account> = Vec::new();
+    let mut seed: Vec<Account> = s.accounts;
+    // Миграция старого одиночного поля: переносим, если список пуст
+    if let Some(old) = s.account {
+        if seed.iter().all(|a| a.uuid != old.uuid) {
+            seed.push(old);
+        }
+    }
+    for mut a in seed {
+        if !account_plausible(&a) || !known_provider(&a.provider) {
+            continue;
+        }
+        if a.provider.is_empty() {
+            a.provider = "ely".into();
+        }
+        if accounts.iter().any(|x| x.uuid == a.uuid) {
+            continue;
+        }
+        accounts.push(a);
+    }
+    // Активным остаётся только существующий в списке
+    let active_account = s
+        .active_account
+        .filter(|id| accounts.iter().any(|a| &a.uuid == id))
+        .or_else(|| accounts.first().map(|a| a.uuid.clone()));
+
+    Settings {
+        use_mirrors: s.use_mirrors,
+        servers,
+        // Старое поле погашено: данные уже в accounts
+        account: None,
+        accounts,
+        active_account,
+        ely_client_id: s.ely_client_id.filter(|c| !c.is_empty() && c.len() <= 128),
+        cf_api_key: s.cf_api_key.filter(|c| !c.is_empty() && c.len() <= 256),
+        msa_client_id: s.msa_client_id.filter(|c| ok_guid(c)),
+        game_width: clamp_window(s.game_width, s.game_height).0,
+        game_height: clamp_window(s.game_width, s.game_height).1,
+        game_fullscreen: s.game_fullscreen,
+    }
+}
+
+impl Settings {
+    // Активный аккаунт: выбранный, иначе единственный сохранённый
+    pub fn active(&self) -> Option<Account> {
+        let by_id = self
+            .active_account
+            .as_ref()
+            .and_then(|id| self.accounts.iter().find(|a| &a.uuid == id));
+        by_id.or_else(|| self.accounts.first()).cloned()
+    }
+
+    // Вставить/обновить учётку и сделать её активной (по uuid;
+    // оффлайн-uuid выводится из ника, повторный вход обновляет ту же запись)
+    pub fn upsert_account(&mut self, acc: Account) {
+        match self.accounts.iter_mut().find(|a| a.uuid == acc.uuid) {
+            Some(slot) => *slot = acc.clone(),
+            None => self.accounts.push(acc.clone()),
+        }
+        self.active_account = Some(acc.uuid);
+        self.account = None;
+    }
+}
+
+// Активный аккаунт из файла настроек
+pub fn active() -> Option<Account> {
+    load().active()
+}
+
+// Сменить активный аккаунт; чужой uuid — ошибка
+pub fn set_active(uuid: &str) -> Result<(), String> {
+    update(|s| {
+        if s.accounts.iter().any(|a| a.uuid == uuid) {
+            s.active_account = Some(uuid.to_string());
+        }
+    })
+    .and_then(|_| {
+        if load().active_account.as_deref() == Some(uuid) {
+            Ok(())
+        } else {
+            Err("аккаунт не найден".into())
+        }
+    })
+}
+
+// Удалить учётку; если это был активный — активным становится первый из оставшихся
+pub fn remove_account(uuid: &str) -> Result<(), String> {
+    update(|s| {
+        s.accounts.retain(|a| a.uuid != uuid);
+        if s.active_account.as_deref() == Some(uuid) {
+            s.active_account = s.accounts.first().map(|a| a.uuid.clone());
+        }
+        s.account = None;
+    })
 }
 
 pub fn save(s: &Settings) -> Result<(), String> {
@@ -248,6 +344,87 @@ mod tests {
             ..ok.clone()
         };
         assert!(bad.name.is_empty());
+    }
+
+    fn acc(name: &str, uuid: &str, provider: &str) -> Account {
+        Account {
+            name: name.into(),
+            uuid: uuid.into(),
+            access_token: "t".into(),
+            refresh_token: "r".into(),
+            expires_at: 0,
+            provider: provider.into(),
+        }
+    }
+
+    const U1: &str = "069a79f4-44e9-4726-a5be-fca90e38abaf";
+    const U2: &str = "1c1e4a5f-2b7d-4c3e-9a0b-5d6e7f8a9b0c";
+
+    // Старый файл с одиночным account переезжает в accounts и становится активным
+    #[test]
+    fn legacy_account_migrates_to_list() {
+        let s = Settings {
+            account: Some(acc("Notch", U1, "")),
+            ..Default::default()
+        };
+        let out = sanitize(s);
+        assert_eq!(out.accounts.len(), 1);
+        assert_eq!(out.accounts[0].provider, "ely"); // пустой провайдер = ely
+        assert_eq!(out.active_account.as_deref(), Some(U1));
+        assert_eq!(out.active().map(|a| a.name), Some("Notch".into()));
+        assert!(out.account.is_none());
+    }
+
+    // Мусорные учётки отбрасываются, дублей по uuid не остаётся
+    #[test]
+    fn accounts_are_filtered_and_deduped() {
+        let s = Settings {
+            accounts: vec![
+                acc("Steve", U1, "offline"),
+                acc("", U2, "ely"),            // пустое имя — долой
+                acc("Dup", U1, "msa"),         // тот же uuid — дубль
+                acc("Bad", "короткий", "ely"), // uuid не 36
+                acc("Fog", U2, "steam"),       // неизвестный провайдер
+            ],
+            ..Default::default()
+        };
+        let out = sanitize(s);
+        assert_eq!(out.accounts.len(), 1);
+        assert_eq!(out.accounts[0].name, "Steve");
+        assert_eq!(out.accounts[0].provider, "offline");
+        assert_eq!(out.active_account.as_deref(), Some(U1));
+    }
+
+    // Активный uuid, которого нет в списке, заменяется первым существующим
+    #[test]
+    fn active_id_falls_back_to_first() {
+        let mut s = Settings {
+            accounts: vec![acc("A", U1, "ely"), acc("B", U2, "msa")],
+            active_account: Some("deadbeef-dead-dead-dead-deaddeadbeef".into()),
+            ..Default::default()
+        };
+        let out = sanitize(s.clone());
+        assert_eq!(out.active().map(|a| a.name), Some("A".into()));
+        // И явно выбранный выигрывает у фолбэка
+        s.active_account = Some(U2.to_string());
+        assert_eq!(sanitize(s).active().map(|a| a.name), Some("B".into()));
+    }
+
+    // Апсерт обновляет по uuid и делает запись активной
+    #[test]
+    fn upsert_replaces_and_activates() {
+        let mut s = Settings::default();
+        s.upsert_account(acc("Steve", U1, "offline"));
+        s.upsert_account(acc("Notch", U2, "ely"));
+        assert_eq!(s.accounts.len(), 2);
+        assert_eq!(s.active_account.as_deref(), Some(U2));
+        // Повторный вход с тем же uuid обновляет токены, а не плодит запись
+        let mut renewed = acc("Notch", U2, "ely");
+        renewed.access_token = "new".into();
+        s.upsert_account(renewed);
+        assert_eq!(s.accounts.len(), 2);
+        assert_eq!(s.accounts[1].access_token, "new");
+        assert!(s.account.is_none());
     }
 
     #[test]

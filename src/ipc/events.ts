@@ -87,3 +87,15 @@ export interface PackInstalled {
 
 export const onPackInstalled = (fn: (p: PackInstalled) => void): Promise<UnlistenFn> =>
   listen<PackInstalled>('pack-installed', (e) => fn(e.payload))
+
+// Итог «Проверить файлы»: сколько битых перекачано, сколько модов восстановлено
+export interface VerifyDone {
+  instance: string
+  error: string | null
+  broken: number
+  mods_fixed: number
+  mods_failed: string[]
+}
+
+export const onVerifyDone = (fn: (p: VerifyDone) => void): Promise<UnlistenFn> =>
+  listen<VerifyDone>('verify-done', (e) => fn(e.payload))

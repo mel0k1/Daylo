@@ -135,6 +135,14 @@ export interface AccountInfo {
   uuid: string
 }
 
+// Запись в списке аккаунтов — без токенов
+export interface AccountBrief {
+  mode: 'ely' | 'msa' | 'offline'
+  name: string
+  uuid: string
+  active: boolean
+}
+
 export interface LauncherSettings {
   use_mirrors: boolean
   cf_api_key: string | null
@@ -173,13 +181,27 @@ export const msaLoginPoll = (deviceCode: string) =>
 
 export const msaSkin = () => invoke<string | null>('msa_skin')
 
-export const elyLogout = () => invoke<void>('ely_logout')
-
 export const accountInfo = () => invoke<AccountInfo>('account_info')
+
+// Список сохранённых аккаунтов (ely, msa, оффлайн)
+export const accountList = () => invoke<AccountBrief[]>('account_list')
+
+export const accountSwitch = (uuid: string) =>
+  invoke<void>('account_switch', { uuid })
+
+export const accountAddOffline = (nick: string) =>
+  invoke<AccountBrief>('account_add_offline', { nick })
+
+// Убрать аккаунт из списка; активным становится первый из оставшихся
+export const accountLogout = (uuid: string) =>
+  invoke<void>('account_logout', { uuid })
 
 export const elySkin = (nick: string) => invoke<string | null>('ely_skin', { nick })
 
 export const getLauncherSettings = () => invoke<LauncherSettings>('get_launcher_settings')
+
+// Проверка файлов сборки: результат приходит событием verify-done
+export const instanceVerify = (id: string) => invoke<void>('instance_verify', { id })
 
 export const setMirrors = (enabled: boolean) => invoke<void>('set_mirrors', { enabled })
 
