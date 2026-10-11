@@ -37,7 +37,8 @@ pub struct GameExit {
     pub crash: Option<crash::CrashInfo>,
 }
 
-type Running = HashMap<String, Arc<Mutex<tokio::process::Child>>>;
+// Слот на сборку: None, пока идёт подготовка (докачка, java), Some — игра жива
+type Running = HashMap<String, Arc<Mutex<Option<tokio::process::Child>>>>;
 
 fn running() -> &'static std::sync::Mutex<Running> {
     static RUNNING: std::sync::OnceLock<std::sync::Mutex<Running>> = std::sync::OnceLock::new();
@@ -92,6 +93,32 @@ pub async fn launch(
     version_id: &str,
     nick: &str,
     instance: &str,
+) -> Result<(), String> {
+    // Гард повторного запуска: слот бронируется заранее, пока идёт долгая
+    // подготовка (докачка версий, java) — второй клик «Играть» не плодит JVM
+    let slot = {
+        let mut reg = running().lock().map_err(|_| "реестр процессов")?;
+        if reg.contains_key(instance) {
+            return Err("эта сборка уже запущена".into());
+        }
+        let slot = Arc::new(Mutex::new(None));
+        reg.insert(instance.to_string(), slot.clone());
+        slot
+    };
+    let res = launch_body(app, version_id, nick, instance, &slot).await;
+    if res.is_err() {
+        // Снимаем бронь: попытка не удалась, можно пробовать снова
+        running().lock().ok().and_then(|mut r| r.remove(instance));
+    }
+    res
+}
+
+async fn launch_body(
+    app: tauri::AppHandle,
+    version_id: &str,
+    nick: &str,
+    instance: &str,
+    slot: &Arc<Mutex<Option<tokio::process::Child>>>,
 ) -> Result<(), String> {
     // Провайдер аккаунта выбирает путь обновления токена и user_type:
     // Microsoft → "msa", Ely.by → "mojang" через authlib-injector, нет — оффлайн
@@ -270,6 +297,8 @@ pub async fn launch(
     let log_file = game_dir.join("logs");
     let _ = tokio::fs::create_dir_all(&log_file).await;
     let log_path = log_file.join("latest.txt");
+    // Свежий лог на каждую сессию, как latest.log у ванилы
+    rotate_log(&log_path).await;
 
     let mut cmd = tokio::process::Command::new(&java_bin);
     cmd.args(&jvm)
@@ -286,11 +315,18 @@ pub async fn launch(
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
 
-    let child = Arc::new(Mutex::new(child));
-    running()
+    // Слот могли вынуть stop()'ом, пока шла подготовка: гасим свежий процесс
+    let registered = running()
         .lock()
         .map_err(|_| "реестр процессов")?
-        .insert(instance.to_string(), child.clone());
+        .contains_key(instance);
+    if !registered {
+        let _ = child.kill().await;
+        return Err("запуск отменён".into());
+    }
+    *slot.lock().await = Some(child);
+
+    let child = slot.clone();
 
     let app_log = app.clone();
     let log_version = instance.to_string();
@@ -307,7 +343,8 @@ pub async fn launch(
             tokio::time::sleep(std::time::Duration::from_millis(300)).await;
             let code = {
                 let mut guard = child.lock().await;
-                match guard.try_wait() {
+                let Some(c) = guard.as_mut() else { continue };
+                match c.try_wait() {
                     Ok(Some(status)) => status.code(),
                     Ok(None) => continue,
                     Err(_) => None,
@@ -402,15 +439,29 @@ async fn append_log(path: &PathBuf, line: &str) {
     }
 }
 
+// Свежий лог на каждую сессию: прошлый переезжает в latest-old.txt.
+// Append-лог иначе растёт вечно, а краш-детектор читает начало файла —
+// после пары тысяч строк старьёв он разбирал бы не тот кусок
+async fn rotate_log(path: &PathBuf) {
+    if tokio::fs::metadata(path).await.is_err() {
+        return;
+    }
+    let old = path.with_file_name("latest-old.txt");
+    let _ = tokio::fs::remove_file(&old).await;
+    let _ = tokio::fs::rename(path, &old).await;
+}
+
 // Останавливает запущенную игру
 pub async fn stop(version_id: &str) -> Result<(), String> {
-    let child = running()
+    let slot = running()
         .lock()
         .map_err(|_| "реестр процессов")?
         .remove(version_id);
-    if let Some(child) = child {
-        let mut guard = child.lock().await;
-        let _ = guard.kill().await;
+    if let Some(slot) = slot {
+        let mut guard = slot.lock().await;
+        if let Some(child) = guard.as_mut() {
+            let _ = child.kill().await;
+        }
     }
     Ok(())
 }
@@ -425,5 +476,31 @@ mod tests {
         assert_eq!(u.len(), 36);
         assert_eq!(u.chars().filter(|c| *c == '-').count(), 4);
         assert!(u.chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
+    }
+
+    #[tokio::test]
+    async fn rotate_log_keeps_previous_session() {
+        let dir = std::env::temp_dir().join(format!("daylo-rotate-{}", std::process::id()));
+        let _ = tokio::fs::remove_dir_all(&dir).await;
+        tokio::fs::create_dir_all(&dir).await.unwrap();
+        let log = dir.join("latest.txt");
+        tokio::fs::write(&log, "сессия 1\n").await.unwrap();
+        rotate_log(&log).await;
+        assert!(!log.exists());
+        assert_eq!(
+            tokio::fs::read_to_string(dir.join("latest-old.txt"))
+                .await
+                .unwrap(),
+            "сессия 1\n"
+        );
+        // Ротация без свежего лога не трогает прошлую сессию
+        rotate_log(&log).await;
+        assert_eq!(
+            tokio::fs::read_to_string(dir.join("latest-old.txt"))
+                .await
+                .unwrap(),
+            "сессия 1\n"
+        );
+        let _ = tokio::fs::remove_dir_all(&dir).await;
     }
 }

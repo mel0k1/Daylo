@@ -4,6 +4,7 @@ use serde::Deserialize;
 
 use super::super::core::http;
 use super::super::core::paths;
+use super::super::core::selfupdate;
 
 // Java качается из Adoptium: JRE нужной мажорной версии
 #[derive(Deserialize)]
@@ -73,14 +74,30 @@ pub async fn ensure_java(major: u32) -> Result<PathBuf, String> {
     tokio::fs::create_dir_all(&root)
         .await
         .map_err(|e| format!("папка java: {e}"))?;
-    http::download(
-        &asset.binary.package.link,
-        &archive,
-        None,
-        asset.binary.package.checksum.as_deref(),
-        None,
-    )
-    .await?;
+    // Бинарник лежит на github.com: из России качаем «прокси → напрямую»,
+    // как релизы лаунчера; checksum Adoptium валиден для любого маршрута
+    let mut last = String::new();
+    let mut ok = false;
+    for route in selfupdate::gh_routes(&asset.binary.package.link) {
+        match http::download(
+            &route,
+            &archive,
+            None,
+            asset.binary.package.checksum.as_deref(),
+            None,
+        )
+        .await
+        {
+            Ok(()) => {
+                ok = true;
+                break;
+            }
+            Err(e) => last = e,
+        }
+    }
+    if !ok {
+        return Err(last);
+    }
 
     let extract_dir = root.join("unpack");
     let _ = tokio::fs::remove_dir_all(&extract_dir).await;
