@@ -1,4 +1,5 @@
 pub mod account;
+pub mod ai;
 pub mod config;
 pub mod launch;
 pub mod mods;

@@ -29,6 +29,7 @@ import { onPackProgress, onPackInstalled, onGameExit, type PackProgress } from '
 import { useGame } from '../state/game'
 import { useAccount } from '../state/account'
 import { hasTauri } from '../ipc/tauri'
+import { AiBuild } from '../components/AiBuild'
 
 type View = 'mine' | 'catalog'
 type Source = 'modrinth' | 'curseforge' | 'ftb'
@@ -396,6 +397,7 @@ export function Packs() {
       {view === 'mine' && (
         <>
           <BuildOwnCard open={builder} onToggle={() => setBuilder(!builder)} />
+          <AiBuild />
           {instances.length === 0 ? (
             <Card className="mods-installed">
               <div className="mods-empty">

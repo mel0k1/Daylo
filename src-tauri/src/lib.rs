@@ -66,6 +66,7 @@ pub fn run() {
             commands::worlds::world_backup_restore,
             commands::worlds::world_backup_delete,
             commands::worlds::world_backups_open,
+            commands::ai::ai_build_plan,
         ])
         .run(tauri::generate_context!())
         .expect("не удалось запустить Daylo");

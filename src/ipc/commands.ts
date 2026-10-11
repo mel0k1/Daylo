@@ -306,3 +306,17 @@ export const worldBackupDelete = (version: string, file: string) =>
 
 export const worldBackupsOpen = (version: string) =>
   invoke<void>('world_backups_open', { version })
+
+export interface AiPick {
+  project_id: string
+  slug: string
+  title: string
+  description: string
+  icon_url: string
+  downloads: number
+  version_id: string
+  file_name: string
+}
+
+export const aiBuildPlan = (prompt: string, gameVersion: string, loader: string) =>
+  invoke<AiPick[]>('ai_build_plan', { prompt, gameVersion, loader })
