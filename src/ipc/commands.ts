@@ -26,6 +26,10 @@ export const appInfo = () => invoke<AppInfo>('app_info')
 
 export const listVersions = () => invoke<VersionEntry[]>('list_versions')
 
+// Удаление скачанной версии: на диске уходит versions/<id>
+export const deleteVersion = (version: string) =>
+  invoke<void>('version_delete', { version })
+
 export const installVersion = (version: string) =>
   invoke<void>('install_version', { version })
 

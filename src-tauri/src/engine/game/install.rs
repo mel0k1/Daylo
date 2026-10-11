@@ -618,6 +618,34 @@ pub fn classpath(v: &VersionJson, version_id: &str) -> Vec<PathBuf> {
     cp
 }
 
+// --- Удаление скачанной версии ---
+
+// Идентификатор версии безопасен для удаления папки versions/<id>:
+// латиница, цифры, точка, подчёркивание и дефис, без «..», до 64 символов
+pub fn version_id_ok(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 64
+        && !id.contains("..")
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+}
+
+// Удалить скачанную версию целиком: jar, json, нативы. Библиотеки и ассеты
+// общие для всех версий — остаются на диске
+pub async fn remove_version(id: &str) -> Result<(), String> {
+    if !version_id_ok(id) {
+        return Err("некорректное имя версии".into());
+    }
+    let dir = paths::versions_dir().join(id);
+    if !dir.is_dir() {
+        return Err("версия не найдена".into());
+    }
+    tokio::fs::remove_dir_all(&dir)
+        .await
+        .map_err(|e| format!("удаление: {e}"))
+}
+
 // Папка с распакованными нативами версии
 pub fn natives_dir(version_id: &str, _v: &VersionJson) -> PathBuf {
     paths::version_dir(version_id).join("natives")
@@ -651,5 +679,20 @@ mod tests {
         // Без известных хеша и размера существующий файл считаем целым
         assert!(!broken_file(&f, None, None));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // Правила имени версии для удаления: только безопасные символы
+    #[test]
+    fn version_id_rules() {
+        assert!(version_id_ok("1.21.10"));
+        assert!(version_id_ok("fabric-loader-0.16.9-1.21.10"));
+        assert!(version_id_ok("quilt_2k"));
+        assert!(!version_id_ok(""));
+        assert!(!version_id_ok(".."));
+        assert!(!version_id_ok("a..b"));
+        assert!(!version_id_ok("a/b"));
+        assert!(!version_id_ok("a\\b"));
+        assert!(!version_id_ok("привет"));
+        assert!(!version_id_ok(&"x".repeat(65)));
     }
 }

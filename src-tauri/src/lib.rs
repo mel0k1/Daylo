@@ -29,6 +29,7 @@ pub fn run() {
             commands::screens::shots_open,
             commands::launch::list_versions,
             commands::launch::install_version,
+            commands::launch::version_delete,
             commands::launch::launch_game,
             commands::launch::launch_instance,
             commands::launch::stop_game,

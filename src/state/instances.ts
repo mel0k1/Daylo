@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import {
+  deleteVersion,
   instanceDelete,
   instanceList,
   instanceVerify,
@@ -32,6 +33,7 @@ interface InstancesState {
   launch: (id: string) => Promise<void>
   verify: (id: string) => Promise<void>
   remove: (info: InstanceInfo) => Promise<void>
+  removeVersion: (id: string) => Promise<void>
 }
 
 let wired = false
@@ -138,6 +140,21 @@ export const useInstances = create<InstancesState>((set, get) => ({
     try {
       await instanceDelete(info.id)
       await get().refresh()
+    } catch (e) {
+      set({ error: String(e) })
+    }
+  },
+
+  // Удаление скачанной версии из библиотеки: бэкенд откажет, если игра
+  // запущена сама по себе или через сборку на этой версии
+  removeVersion: async (id) => {
+    if (!window.confirm(`Удалить версию ${id} с диска?`)) return
+    set({ error: '' })
+    try {
+      await deleteVersion(id)
+      await get().refresh()
+      // Пометка «· есть» в дропдауне версий строится из списка версий
+      await useGame.getState().refresh()
     } catch (e) {
       set({ error: String(e) })
     }

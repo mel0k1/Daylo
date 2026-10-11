@@ -45,6 +45,15 @@ fn running() -> &'static std::sync::Mutex<Running> {
     RUNNING.get_or_init(|| std::sync::Mutex::new(HashMap::new()))
 }
 
+// Запущена ли игра под этим слотом (имя сборки или ванильная версия).
+// Слот бронируется до долгой подготовки, поэтому true — с самого старта
+pub fn is_running(slot: &str) -> bool {
+    running()
+        .lock()
+        .map(|reg| reg.contains_key(slot))
+        .unwrap_or(false)
+}
+
 // Сборки, остановленные пользователем: их выход — не краш, модал не показываем
 fn stopping() -> &'static std::sync::Mutex<HashSet<String>> {
     static STOPPING: std::sync::OnceLock<std::sync::Mutex<HashSet<String>>> =

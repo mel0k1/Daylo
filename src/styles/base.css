@@ -162,15 +162,24 @@ body {
   white-space: nowrap;
 }
 
-/* Цветной слот-иконка пункта меню */
-.nav::before {
-  content: '';
-  width: 10px;
-  height: 10px;
+/* Слот-иконка пункта меню: цветной квадрат с пиксельной иконкой внутри */
+.nav-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
   background: var(--slot, #6a7280);
   border: 2px solid var(--ink);
   box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.nav-ico svg {
+  display: block;
+  width: 14px;
+  height: 14px;
 }
 
 .bottombar .nav:nth-of-type(1) {

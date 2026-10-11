@@ -1,5 +1,13 @@
-import { useEffect } from 'react'
+import { useEffect, type ReactElement } from 'react'
 import { useUi } from './state/ui'
+import {
+  IconPlay,
+  IconPacks,
+  IconMods,
+  IconWorlds,
+  IconShots,
+  IconSettings,
+} from './components/icons'
 import { useAccount } from './state/account'
 import { useGame } from './state/game'
 import { Play } from './screens/Play'
@@ -10,13 +18,17 @@ import { Shots } from './screens/Shots'
 import { Settings } from './screens/Settings'
 import { CrashModal } from './components/CrashModal'
 
-const navItems: { id: 'play' | 'packs' | 'mods' | 'worlds' | 'shots' | 'settings'; label: string }[] = [
-  { id: 'play', label: 'Играть' },
-  { id: 'packs', label: 'Сборки' },
-  { id: 'mods', label: 'Моды' },
-  { id: 'worlds', label: 'Миры' },
-  { id: 'shots', label: 'Скриншоты' },
-  { id: 'settings', label: 'Настройки' },
+const navItems: {
+  id: 'play' | 'packs' | 'mods' | 'worlds' | 'shots' | 'settings'
+  label: string
+  icon: ReactElement
+}[] = [
+  { id: 'play', label: 'Играть', icon: <IconPlay /> },
+  { id: 'packs', label: 'Сборки', icon: <IconPacks /> },
+  { id: 'mods', label: 'Моды', icon: <IconMods /> },
+  { id: 'worlds', label: 'Миры', icon: <IconWorlds /> },
+  { id: 'shots', label: 'Скриншоты', icon: <IconShots /> },
+  { id: 'settings', label: 'Настройки', icon: <IconSettings /> },
 ]
 
 export default function App() {
@@ -61,6 +73,7 @@ export default function App() {
             className={screen === item.id ? 'nav on' : 'nav'}
             onClick={() => useUi.getState().setScreen(item.id)}
           >
+            <span className="nav-ico">{item.icon}</span>
             {item.label}
           </button>
         ))}

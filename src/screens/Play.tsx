@@ -360,6 +360,13 @@ export function Play() {
                       <Button bg="#2f7d4f" onClick={() => playVersion(v.id)} disabled={gameCardBusy}>
                         {v.id === version && busy ? 'Готовим…' : 'Играть'}
                       </Button>
+                      <Button
+                        bg="#a03030"
+                        onClick={() => void inst.removeVersion(v.id)}
+                        disabled={gameCardBusy}
+                      >
+                        Удалить
+                      </Button>
                     </div>
                   </Card>
                 ))}

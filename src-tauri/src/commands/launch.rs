@@ -141,6 +141,35 @@ pub async fn stop_game(version: String) -> Result<(), String> {
     engine::game::launch::stop(&version).await
 }
 
+// Удаление скачанной версии из библиотеки. Запущенную нельзя: ни саму по
+// себе (слот = версия), ни через сборку (слот = папка сборки, версия из
+// daylo.json). Ассеты и библиотеки общие — остаются на диске
+#[tauri::command]
+pub async fn version_delete(version: String) -> Result<(), String> {
+    if engine::game::launch::is_running(&version) {
+        return Err("версия сейчас запущена".into());
+    }
+    let root = engine::core::paths::game_root().join("instances");
+    if let Ok(mut rd) = tokio::fs::read_dir(&root).await {
+        while let Ok(Some(entry)) = rd.next_entry().await {
+            if !entry.path().is_dir() {
+                continue;
+            }
+            let id = entry.file_name().to_string_lossy().to_string();
+            let cfg = engine::game::config::load(&id).await;
+            let used = if cfg.launch_version.is_empty() {
+                id.clone()
+            } else {
+                cfg.launch_version
+            };
+            if used == version && engine::game::launch::is_running(&id) {
+                return Err(format!("версия занята сборкой «{id}»"));
+            }
+        }
+    }
+    engine::game::install::remove_version(&version).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
