@@ -44,7 +44,7 @@
   --link: #7d9bff;
 
   --font-pixel: 'Pixuf', 'Press Start 2P', 'Pixelify Sans', monospace;
-  --font-ui: 'Pixelify Sans', system-ui, sans-serif;
+  --font-ui: 'Pixuf', 'Pixelify Sans', system-ui, sans-serif;
 
   font-family: var(--font-ui);
   font-size: 15px;

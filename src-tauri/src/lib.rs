@@ -66,6 +66,7 @@ pub fn run() {
             commands::settings::set_cf_key,
             commands::settings::set_game_window,
             commands::settings::set_game_fullscreen,
+            commands::settings::set_backups,
             commands::config::get_instance_config,
             commands::config::save_instance_config,
             commands::mods::modrinth_search,

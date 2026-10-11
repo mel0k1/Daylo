@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use super::super::core::paths;
+use super::super::core::settings;
 
 #[derive(Serialize, Clone)]
 pub struct World {
@@ -129,7 +130,8 @@ pub async fn worlds(version: &str) -> Vec<World> {
     worlds
 }
 
-// Запаковывает мир в backups/<мир>-<epoch>.zip, возвращает метаданные бэкапа
+// Запаковывает мир в backups/<мир>-<epoch>.zip, возвращает метаданные бэкапа.
+// После копии срабатывает ретенция: остаются keep свежайших (из настроек)
 pub async fn create(version: &str, world: &str) -> Result<Backup, String> {
     if !world_ok(world) {
         return Err("плохое имя мира".into());
@@ -150,12 +152,119 @@ pub async fn create(version: &str, world: &str) -> Result<Backup, String> {
         .await
         .map_err(|e| format!("поток: {e}"))??;
     let meta = tokio::fs::metadata(&dst).await.map_err(|e| e.to_string())?;
+    let keep = settings::load().backup_keep;
+    prune(version, world, keep).await;
     Ok(Backup {
         file: dst_name,
         world: world.to_string(),
         created: meta.modified().ok().map(epoch_secs).unwrap_or(0),
         size: meta.len(),
     })
+}
+
+// Максимальное время изменения файла в мире (блокирующий обход, звать из
+// spawn_blocking): метка свежайшей правки для решения «нужен ли бэкап»
+fn world_mtime_max(dir: &Path) -> u64 {
+    let mut files = Vec::new();
+    walk(dir, &mut files);
+    files
+        .iter()
+        .filter_map(|f| std::fs::metadata(f).ok())
+        .filter_map(|m| m.modified().ok())
+        .map(epoch_secs)
+        .max()
+        .unwrap_or(0)
+}
+
+// Мир менялся после свежайшего бэкапа? Нет бэкапов — считаем что нужен
+fn world_needs_backup(max_mtime: u64, latest: u64) -> bool {
+    latest == 0 || max_mtime > latest
+}
+
+// Ретенция: оставляем keep свежайших копий мира, старшие удаляем.
+// Касается только *.zip — папки keep-* от восстановления не трогаются
+async fn prune(version: &str, world: &str, keep: u32) {
+    let stale: Vec<String> = list(version)
+        .await
+        .into_iter()
+        .filter(|b| b.world == world)
+        .skip(keep as usize)
+        .map(|b| b.file)
+        .collect();
+    for f in stale {
+        let _ = delete(version, &f).await;
+    }
+}
+
+// Метка времени из имени keep-папки (создана при восстановлении).
+// mtime папки не годится — это время её содержимого, оно древнее
+fn keep_dir_epoch(name: &str) -> Option<u64> {
+    if !name.starts_with("keep-") {
+        return None;
+    }
+    name.rsplit_once('-')
+        .and_then(|(_, ts)| if ts.is_empty() { None } else { ts.parse().ok() })
+}
+
+// Папки keep-* живут неделю по метке в имени, потом вон
+async fn prune_keeps(version: &str) {
+    let Ok(mut rd) = tokio::fs::read_dir(backups_dir(version)).await else {
+        return;
+    };
+    let week = 7 * 24 * 3600;
+    let now = epoch_secs(std::time::SystemTime::now());
+    while let Ok(Some(e)) = rd.next_entry().await {
+        if !e.path().is_dir() {
+            continue;
+        }
+        let name = e.file_name().to_string_lossy().to_string();
+        if let Some(ts) = keep_dir_epoch(&name) {
+            if ts + week < now {
+                let _ = tokio::fs::remove_dir_all(e.path()).await;
+            }
+        }
+    }
+}
+
+// Автобэкап перед запуском: архивируем только миры, изменившиеся после
+// свежайшей копии. Ошибки отдельных миров не мешают остальным и запуску,
+// возвращаем число сделанных копий
+pub async fn auto_backup(version: &str) -> usize {
+    prune_keeps(version).await;
+    let mut names: Vec<String> = Vec::new();
+    let Ok(mut rd) = tokio::fs::read_dir(saves_dir(version)).await else {
+        return 0;
+    };
+    while let Ok(Some(e)) = rd.next_entry().await {
+        if !e.path().is_dir() {
+            continue;
+        }
+        let name = e.file_name().to_string_lossy().to_string();
+        if world_ok(&name) {
+            names.push(name);
+        }
+    }
+    let mut created = 0usize;
+    for w in names {
+        let latest = list(version)
+            .await
+            .into_iter()
+            .filter(|b| b.world == w)
+            .map(|b| b.created)
+            .max()
+            .unwrap_or(0);
+        let dir = saves_dir(version).join(&w);
+        let max = tokio::task::spawn_blocking(move || world_mtime_max(&dir))
+            .await
+            .unwrap_or(0);
+        if !world_needs_backup(max, latest) {
+            continue;
+        }
+        if create(version, &w).await.is_ok() {
+            created += 1;
+        }
+    }
+    created
 }
 
 fn zip_dir(src: &Path, dst: &Path) -> Result<(), String> {
@@ -343,5 +452,26 @@ mod tests {
         );
         // без метки времени — весь стем, created = 0
         assert_eq!(parse_backup_name("wanderer.zip"), ("wanderer".into(), 0));
+    }
+
+    #[test]
+    fn backup_needed_only_after_changes() {
+        // нет копий — бэкапим всегда
+        assert!(world_needs_backup(0, 0));
+        assert!(world_needs_backup(1, 0));
+        // мир не менялся после копии (и даже ровно в момент копии)
+        assert!(!world_needs_backup(100, 200));
+        assert!(!world_needs_backup(200, 200));
+        // изменился после копии
+        assert!(world_needs_backup(300, 200));
+    }
+
+    #[test]
+    fn keep_epoch_from_name() {
+        assert_eq!(keep_dir_epoch("keep-Мир-1728652800"), Some(1728652800));
+        assert_eq!(keep_dir_epoch("keep-My World-42"), Some(42));
+        assert_eq!(keep_dir_epoch("keep-x"), None);
+        assert_eq!(keep_dir_epoch("keep-"), None);
+        assert_eq!(keep_dir_epoch("Мир-100"), None);
     }
 }

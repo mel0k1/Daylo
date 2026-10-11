@@ -9,6 +9,8 @@ pub struct LauncherSettings {
     pub game_width: u32,
     pub game_height: u32,
     pub game_fullscreen: bool,
+    pub backup_on_launch: bool,
+    pub backup_keep: u32,
 }
 
 #[tauri::command]
@@ -20,6 +22,8 @@ pub async fn get_launcher_settings() -> LauncherSettings {
         game_width: s.game_width,
         game_height: s.game_height,
         game_fullscreen: s.game_fullscreen,
+        backup_on_launch: s.backup_on_launch,
+        backup_keep: s.backup_keep,
     }
 }
 
@@ -47,4 +51,14 @@ pub async fn set_game_window(width: u32, height: u32) -> Result<(), String> {
 #[tauri::command]
 pub async fn set_game_fullscreen(on: bool) -> Result<(), String> {
     engine::core::settings::update(move |s| s.game_fullscreen = on)
+}
+
+// Бэкапы миров: автобэкап перед запуском и ретенция копий на мир
+#[tauri::command]
+pub async fn set_backups(on: bool, keep: u32) -> Result<(), String> {
+    let keep = keep.clamp(1, engine::core::settings::MAX_BACKUP_KEEP);
+    engine::core::settings::update(move |s| {
+        s.backup_on_launch = on;
+        s.backup_keep = keep;
+    })
 }

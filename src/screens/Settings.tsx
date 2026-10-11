@@ -10,6 +10,7 @@ import {
   setCfKey,
   setGameWindow,
   setGameFullscreen,
+  setBackups,
   packExport,
   packImport,
   type InstanceInfo,
@@ -389,6 +390,79 @@ function WindowCard() {
   )
 }
 
+// Бэкапы миров: автобэкап перед запуском и сколько копий хранить на мир
+function BackupCard() {
+  const [on, setOn] = useState(true)
+  const [keep, setKeep] = useState('5')
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!hasTauri()) return
+    void getLauncherSettings()
+      .then((s) => {
+        setOn(s.backup_on_launch)
+        setKeep(String(s.backup_keep))
+      })
+      .catch(() => {})
+  }, [])
+
+  const save = async () => {
+    const k = Number.parseInt(keep, 10)
+    if (!Number.isFinite(k) || k < 1 || k > 30) {
+      setError('копий на мир — число от 1 до 30')
+      return
+    }
+    setError('')
+    try {
+      await setBackups(on, k)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 1500)
+    } catch (e) {
+      setError(String(e))
+    }
+  }
+
+  return (
+    <Card className="play-card">
+      <h2 className="retro-title">Бэкапы миров</h2>
+      <label className="check-row">
+        <input
+          type="checkbox"
+          checked={on}
+          onChange={(e) => {
+            setOn(e.target.checked)
+            setSaved(false)
+          }}
+        />
+        <span>Бэкапить миры перед запуском</span>
+      </label>
+      <div className="play-row">
+        <label className="field">
+          <span>Копий на мир</span>
+          <Input
+            className="ram"
+            value={keep}
+            onChange={(e) => {
+              setKeep(e.target.value.replace(/\D/g, ''))
+              setSaved(false)
+            }}
+            inputMode="numeric"
+            maxLength={2}
+          />
+        </label>
+        <Button onClick={() => void save()}>Сохранить</Button>
+      </div>
+      <p className="muted mirrors-note">
+        Перед запуском архивируются только миры, изменившиеся после свежайшей копии.
+        Старые копии удаляются сами, keep-версии от восстановления живут неделю.
+      </p>
+      {error && <p className="error">{error}</p>}
+      {saved && <p className="muted">Сохранено.</p>}
+    </Card>
+  )
+}
+
 // Экспорт текущей сборки в файл и импорт файла-сборки
 function PacksCard() {
   const [busy, setBusy] = useState('')
@@ -616,6 +690,8 @@ export function Settings() {
       </Card>
 
       {online && <WindowCard />}
+
+      {online && <BackupCard />}
 
       {online && <MirrorsCard />}
 

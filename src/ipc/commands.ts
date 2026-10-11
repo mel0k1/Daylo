@@ -155,6 +155,8 @@ export interface LauncherSettings {
   game_width: number
   game_height: number
   game_fullscreen: boolean
+  backup_on_launch: boolean
+  backup_keep: number
 }
 
 export const pingServer = (addr: string) =>
@@ -216,6 +218,10 @@ export const setGameWindow = (width: number, height: number) =>
   invoke<void>('set_game_window', { width, height })
 
 export const setGameFullscreen = (on: boolean) => invoke<void>('set_game_fullscreen', { on })
+
+// Бэкапы миров: автобэкап перед запуском + ретенция копий на мир
+export const setBackups = (on: boolean, keep: number) =>
+  invoke<void>('set_backups', { on, keep })
 
 export interface UpdateInfo {
   version: string

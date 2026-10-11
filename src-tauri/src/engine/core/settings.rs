@@ -17,12 +17,24 @@ const MAX_GAME_W: u32 = 7680;
 const MIN_GAME_H: u32 = 240;
 const MAX_GAME_H: u32 = 4320;
 
+// Ретенция бэкапов миров: копий на мир по умолчанию и максимум
+const DEFAULT_BACKUP_KEEP: u32 = 5;
+pub const MAX_BACKUP_KEEP: u32 = 30;
+
 fn default_game_width() -> u32 {
     1280
 }
 
 fn default_game_height() -> u32 {
     720
+}
+
+fn default_backup_on() -> bool {
+    true
+}
+
+fn default_backup_keep() -> u32 {
+    DEFAULT_BACKUP_KEEP
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
@@ -82,6 +94,11 @@ pub struct Settings {
     // Полноэкранный режим игры
     #[serde(default)]
     pub game_fullscreen: bool,
+    // Автобэкап миров перед запуском; в старых файлах нет полей — вкл. и 5 копий
+    #[serde(default = "default_backup_on")]
+    pub backup_on_launch: bool,
+    #[serde(default = "default_backup_keep")]
+    pub backup_keep: u32,
 }
 
 impl Default for Settings {
@@ -98,6 +115,8 @@ impl Default for Settings {
             game_width: default_game_width(),
             game_height: default_game_height(),
             game_fullscreen: false,
+            backup_on_launch: default_backup_on(),
+            backup_keep: default_backup_keep(),
         }
     }
 }
@@ -211,6 +230,8 @@ fn sanitize(s: Settings) -> Settings {
         game_width: clamp_window(s.game_width, s.game_height).0,
         game_height: clamp_window(s.game_width, s.game_height).1,
         game_fullscreen: s.game_fullscreen,
+        backup_on_launch: s.backup_on_launch,
+        backup_keep: s.backup_keep.clamp(1, MAX_BACKUP_KEEP),
     }
 }
 
@@ -306,6 +327,20 @@ fn restrict_perms(_path: &std::path::Path) {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn backup_keep_is_clamped() {
+        let s = Settings {
+            backup_keep: 0,
+            ..Default::default()
+        };
+        assert_eq!(sanitize(s).backup_keep, 1);
+        let s = Settings {
+            backup_keep: 999,
+            ..Default::default()
+        };
+        assert_eq!(sanitize(s).backup_keep, MAX_BACKUP_KEEP);
+    }
 
     #[test]
     fn servers_are_normalized() {

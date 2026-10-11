@@ -217,6 +217,12 @@ async fn launch_body(
         .await
         .map_err(|e| format!("папка сборки: {e}"))?;
 
+    // Автобэкап миров перед запуском: только изменившиеся после свежайшей
+    // копии, ретенция по настройкам. Сбой бэкапа запуск не отменяет
+    if st.backup_on_launch {
+        super::backup::auto_backup(instance).await;
+    }
+
     // Скин через CustomSkinLoader — только у профилей с загрузчиком; сбой не мешает запуску
     if let Some(base) = &v.inherits_from {
         if let Err(e) = super::skin::apply_to_instance(instance, base, &player).await {
