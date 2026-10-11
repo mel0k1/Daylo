@@ -1,6 +1,6 @@
 [package]
 name = "daylo"
-version = "0.2.0"
+version = "0.3.0"
 description = "Daylo — лаунчер Minecraft"
 authors = ["mel0k1"]
 edition = "2021"
