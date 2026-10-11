@@ -10,6 +10,21 @@ static LOCK: Mutex<()> = Mutex::new(());
 const MAX_SERVERS: usize = 20;
 const MAX_TOKEN_LEN: usize = 4096;
 
+// Здравые границы окна игры: ниже 320x240 интерфейс Minecraft не вмещается,
+// выше 8K мониторов пока не бывает
+const MIN_GAME_W: u32 = 320;
+const MAX_GAME_W: u32 = 7680;
+const MIN_GAME_H: u32 = 240;
+const MAX_GAME_H: u32 = 4320;
+
+fn default_game_width() -> u32 {
+    1280
+}
+
+fn default_game_height() -> u32 {
+    720
+}
+
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct Account {
     pub name: String,
@@ -36,6 +51,14 @@ pub struct Settings {
     // Свой client_id приложения Microsoft (GUID), если не годится публичный
     #[serde(default)]
     pub msa_client_id: Option<String>,
+    // Окно запускаемой игры; в старых файлах нет полей — считаем 1280x720
+    #[serde(default = "default_game_width")]
+    pub game_width: u32,
+    #[serde(default = "default_game_height")]
+    pub game_height: u32,
+    // Полноэкранный режим игры
+    #[serde(default)]
+    pub game_fullscreen: bool,
 }
 
 impl Default for Settings {
@@ -47,6 +70,9 @@ impl Default for Settings {
             ely_client_id: None,
             cf_api_key: None,
             msa_client_id: None,
+            game_width: default_game_width(),
+            game_height: default_game_height(),
+            game_fullscreen: false,
         }
     }
 }
@@ -80,6 +106,14 @@ pub fn normalize_server(raw: &str) -> Option<String> {
         }
     }
     Some(s.to_ascii_lowercase())
+}
+
+// Обрезает запрошенное окно до поддерживаемых границ
+pub fn clamp_window(width: u32, height: u32) -> (u32, u32) {
+    (
+        width.clamp(MIN_GAME_W, MAX_GAME_W),
+        height.clamp(MIN_GAME_H, MAX_GAME_H),
+    )
 }
 
 // GUID вида 8-4-4-4-12 hex — client_id приложения Azure
@@ -130,6 +164,9 @@ pub fn load() -> Settings {
                 ely_client_id: s.ely_client_id.filter(|c| !c.is_empty() && c.len() <= 128),
                 cf_api_key: s.cf_api_key.filter(|c| !c.is_empty() && c.len() <= 256),
                 msa_client_id: s.msa_client_id.filter(|c| ok_guid(c)),
+                game_width: clamp_window(s.game_width, s.game_height).0,
+                game_height: clamp_window(s.game_width, s.game_height).1,
+                game_fullscreen: s.game_fullscreen,
             }
         })
         .unwrap_or_default()
@@ -208,5 +245,18 @@ mod tests {
         assert!(!ok_guid("00000000402b5328"));
         assert!(!ok_guid("00000000-402b-5328-0000-00000000000"));
         assert!(!ok_guid("00000000-402b-5328-0000-0000000000zz"));
+    }
+
+    #[test]
+    fn window_dims_are_clamped() {
+        assert_eq!(clamp_window(1280, 720), (1280, 720));
+        assert_eq!(clamp_window(1024, 768), (1024, 768));
+        // Нули и отрицательные невозможны в u32 — любое малое число к низу
+        assert_eq!(clamp_window(0, 0), (320, 240));
+        assert_eq!(clamp_window(100, 50), (320, 240));
+        // 8K сверху
+        assert_eq!(clamp_window(999_999, 99_999), (7680, 4320));
+        // Ширина в норме, высота за пределами
+        assert_eq!(clamp_window(500, 10_000), (500, 4320));
     }
 }

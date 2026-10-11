@@ -138,6 +138,9 @@ export interface AccountInfo {
 export interface LauncherSettings {
   use_mirrors: boolean
   cf_api_key: string | null
+  game_width: number
+  game_height: number
+  game_fullscreen: boolean
 }
 
 export const pingServer = (addr: string) =>
@@ -179,6 +182,12 @@ export const elySkin = (nick: string) => invoke<string | null>('ely_skin', { nic
 export const getLauncherSettings = () => invoke<LauncherSettings>('get_launcher_settings')
 
 export const setMirrors = (enabled: boolean) => invoke<void>('set_mirrors', { enabled })
+
+// Окно запускаемой игры: размер и полноэкранный режим, общие для всех сборок
+export const setGameWindow = (width: number, height: number) =>
+  invoke<void>('set_game_window', { width, height })
+
+export const setGameFullscreen = (on: boolean) => invoke<void>('set_game_fullscreen', { on })
 
 export interface UpdateInfo {
   version: string

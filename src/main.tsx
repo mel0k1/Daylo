@@ -1,8 +1,13 @@
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import 'pixel-retroui/dist/index.css'
 import 'pixel-retroui/dist/fonts.css'
 import './styles/fonts.css'
 import './styles/base.css'
 
-createRoot(document.getElementById('root')!).render(<App />)
+createRoot(document.getElementById('root')!).render(
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>,
+)

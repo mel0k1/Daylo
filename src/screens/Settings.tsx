@@ -8,6 +8,8 @@ import {
   getLauncherSettings,
   setMirrors,
   setCfKey,
+  setGameWindow,
+  setGameFullscreen,
   packExport,
   packImport,
   type InstanceInfo,
@@ -226,6 +228,102 @@ function UpdateCard() {
         </Button>
       </div>
       {updateError && <p className="error">{updateError}</p>}
+    </Card>
+  )
+}
+
+// Окно запускаемой игры: размер и полноэкранный режим, общие для всех сборок.
+// Значения пишет бэкенд (clamp_window), фронту остаётся валидация для UX
+function WindowCard() {
+  const [width, setWidth] = useState('1280')
+  const [height, setHeight] = useState('720')
+  const [fullscreen, setFullscreen] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!hasTauri()) return
+    void getLauncherSettings()
+      .then((s) => {
+        setWidth(String(s.game_width))
+        setHeight(String(s.game_height))
+        setFullscreen(s.game_fullscreen)
+      })
+      .catch(() => {})
+  }, [])
+
+  const save = async () => {
+    const w = Number.parseInt(width, 10)
+    const h = Number.parseInt(height, 10)
+    if (!Number.isFinite(w) || w < 320 || w > 7680) {
+      setError('ширина — число от 320 до 7680')
+      return
+    }
+    if (!Number.isFinite(h) || h < 240 || h > 4320) {
+      setError('высота — число от 240 до 4320')
+      return
+    }
+    setError('')
+    try {
+      await setGameWindow(w, h)
+      await setGameFullscreen(fullscreen)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 1500)
+    } catch (e) {
+      setError(String(e))
+    }
+  }
+
+  return (
+    <Card className="play-card">
+      <h2 className="retro-title">Окно игры</h2>
+      <div className="play-row">
+        <label className="field">
+          <span>Ширина</span>
+          <Input
+            className="ram"
+            value={width}
+            onChange={(e) => {
+              setWidth(e.target.value.replace(/\D/g, ''))
+              setSaved(false)
+            }}
+            inputMode="numeric"
+            maxLength={4}
+          />
+        </label>
+        <label className="field">
+          <span>Высота</span>
+          <Input
+            className="ram"
+            value={height}
+            onChange={(e) => {
+              setHeight(e.target.value.replace(/\D/g, ''))
+              setSaved(false)
+            }}
+            inputMode="numeric"
+            maxLength={4}
+          />
+        </label>
+      </div>
+      <label className="check-row">
+        <input
+          type="checkbox"
+          checked={fullscreen}
+          onChange={(e) => {
+            setFullscreen(e.target.checked)
+            setSaved(false)
+          }}
+        />
+        <span>Открывать игру на весь экран</span>
+      </label>
+      <p className="muted mirrors-note">
+        Размер окна запускаемой игры, по умолчанию 1280x720. Применится к следующему запуску.
+      </p>
+      {error && <p className="error">{error}</p>}
+      {saved && <p className="muted">Сохранено.</p>}
+      <div className="play-row">
+        <Button onClick={() => void save()}>Сохранить</Button>
+      </div>
     </Card>
   )
 }
@@ -455,6 +553,8 @@ export function Settings() {
           </Button>
         </div>
       </Card>
+
+      {online && <WindowCard />}
 
       {online && <MirrorsCard />}
 

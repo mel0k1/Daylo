@@ -128,10 +128,13 @@ async fn launch_body(
     slot: &Arc<Mutex<Option<tokio::process::Child>>>,
 ) -> Result<(), String> {
     // Провайдер аккаунта выбирает путь обновления токена и user_type:
-    // Microsoft → "msa", Ely.by → "mojang" через authlib-injector, нет — оффлайн
-    let provider = settings::load()
+    // Microsoft → "msa", Ely.by → "mojang" через authlib-injector, нет — оффлайн.
+    // Отсюда же берём размер окна игры, заданный в настройках
+    let st = settings::load();
+    let provider = st
         .account
-        .map(|a| a.provider)
+        .as_ref()
+        .map(|a| a.provider.clone())
         .unwrap_or_default();
     let acc = if provider == "msa" {
         msa::current_account().await
@@ -297,9 +300,12 @@ async fn launch_body(
         return Err("в version json нет игровых аргументов".into());
     }
     game_args.push("--width".into());
-    game_args.push("1280".into());
+    game_args.push(st.game_width.to_string());
     game_args.push("--height".into());
-    game_args.push("720".into());
+    game_args.push(st.game_height.to_string());
+    if st.game_fullscreen {
+        game_args.push("--fullscreen".into());
+    }
 
     let log_file = game_dir.join("logs");
     let _ = tokio::fs::create_dir_all(&log_file).await;

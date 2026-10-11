@@ -1,9 +1,21 @@
+use tauri::Manager;
+
 mod commands;
 mod engine;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Single-instance регистрируется первым: повторный запуск лаунчера
+        // просто поднимает существующее окно (два процесса писали бы settings.json
+        // поверх друг друга)
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::system::app_info,
@@ -47,6 +59,8 @@ pub fn run() {
             commands::settings::get_launcher_settings,
             commands::settings::set_mirrors,
             commands::settings::set_cf_key,
+            commands::settings::set_game_window,
+            commands::settings::set_game_fullscreen,
             commands::config::get_instance_config,
             commands::config::save_instance_config,
             commands::mods::modrinth_search,
