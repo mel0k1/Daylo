@@ -5,14 +5,16 @@ import { useGame } from './state/game'
 import { Play } from './screens/Play'
 import { Packs } from './screens/Packs'
 import { Mods } from './screens/Mods'
+import { Worlds } from './screens/Worlds'
 import { Shots } from './screens/Shots'
 import { Settings } from './screens/Settings'
 import { CrashModal } from './components/CrashModal'
 
-const navItems: { id: 'play' | 'packs' | 'mods' | 'shots' | 'settings'; label: string }[] = [
+const navItems: { id: 'play' | 'packs' | 'mods' | 'worlds' | 'shots' | 'settings'; label: string }[] = [
   { id: 'play', label: 'Играть' },
   { id: 'packs', label: 'Сборки' },
   { id: 'mods', label: 'Моды' },
+  { id: 'worlds', label: 'Миры' },
   { id: 'shots', label: 'Скриншоты' },
   { id: 'settings', label: 'Настройки' },
 ]
@@ -87,6 +89,7 @@ export default function App() {
         {screen === 'play' && <Play />}
         {screen === 'packs' && <Packs />}
         {screen === 'mods' && <Mods />}
+        {screen === 'worlds' && <Worlds />}
         {screen === 'shots' && <Shots />}
         {screen === 'settings' && <Settings />}
       </main>

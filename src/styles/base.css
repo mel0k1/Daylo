@@ -175,6 +175,10 @@ body {
 }
 
 .sidebar .nav:nth-of-type(4) {
+  --slot: #8f5f9f;
+}
+
+.sidebar .nav:nth-of-type(5) {
   --slot: #8a8f98;
 }
 
@@ -1081,8 +1085,75 @@ textarea::placeholder {
   padding: 0 4px;
 }
 
-/* ---------- Скриншоты ---------- */
+/* ---------- Миры и бэкапы ---------- */
 
+.worlds-screen {
+  max-width: 960px;
+}
+
+.worlds-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.world-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.world-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.world-name {
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
+
+.backups-title {
+  margin-top: 18px;
+  font-size: 13px;
+}
+
+.backup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.backup-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-inset);
+  border: 2px solid var(--border-soft);
+}
+
+.backup-row:hover {
+  border-color: var(--accent);
+}
+
+.backup-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.backup-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ---------- Скриншоты ---------- */
 .shots-screen {
   max-width: 960px;
 }

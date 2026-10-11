@@ -276,3 +276,33 @@ export const shotsDelete = (version: string, name: string) =>
   invoke<void>('shots_delete', { version, name })
 
 export const shotsOpen = (version: string) => invoke<void>('shots_open', { version })
+
+export interface WorldInfo {
+  name: string
+  modified: number
+  size: number
+}
+
+export interface WorldBackup {
+  file: string
+  world: string
+  created: number
+  size: number
+}
+
+export const worldsList = (version: string) => invoke<WorldInfo[]>('worlds_list', { version })
+
+export const worldBackupCreate = (version: string, world: string) =>
+  invoke<WorldBackup>('world_backup_create', { version, world })
+
+export const worldBackupsList = (version: string) =>
+  invoke<WorldBackup[]>('world_backups_list', { version })
+
+export const worldBackupRestore = (version: string, file: string) =>
+  invoke<void>('world_backup_restore', { version, file })
+
+export const worldBackupDelete = (version: string, file: string) =>
+  invoke<void>('world_backup_delete', { version, file })
+
+export const worldBackupsOpen = (version: string) =>
+  invoke<void>('world_backups_open', { version })

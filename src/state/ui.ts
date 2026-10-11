@@ -3,7 +3,7 @@ import { appInfo, updateCheck, updateInstall, type UpdateInfo } from '../ipc/com
 import { onUpdateProgress, type UpdateProgress } from '../ipc/events'
 import { hasTauri } from '../ipc/tauri'
 
-export type ScreenId = 'play' | 'packs' | 'mods' | 'shots' | 'settings'
+export type ScreenId = 'play' | 'packs' | 'mods' | 'worlds' | 'shots' | 'settings'
 
 interface UiState {
   screen: ScreenId

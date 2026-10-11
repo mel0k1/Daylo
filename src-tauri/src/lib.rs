@@ -60,6 +60,12 @@ pub fn run() {
             commands::skin::skin_load,
             commands::skin::skin_delete,
             commands::skin::ely_upload_skin,
+            commands::worlds::worlds_list,
+            commands::worlds::world_backup_create,
+            commands::worlds::world_backups_list,
+            commands::worlds::world_backup_restore,
+            commands::worlds::world_backup_delete,
+            commands::worlds::world_backups_open,
         ])
         .run(tauri::generate_context!())
         .expect("не удалось запустить Daylo");
