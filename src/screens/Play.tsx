@@ -274,7 +274,12 @@ export function Play() {
             Остановить
           </Button>
         ) : (
-          <Button onClick={() => void play()} disabled={gameCardBusy || !version}>
+          <Button
+            className="btn-cta"
+            bg="#2f7d4f"
+            onClick={() => void play()}
+            disabled={gameCardBusy || !version}
+          >
             {busy ? 'Готовим…' : 'Играть'}
           </Button>
         )}
@@ -308,9 +313,10 @@ export function Play() {
               </button>
             </div>
             {packs.length === 0 ? (
-              <p className="muted lib-empty">
-                Готовых сборок нет — установите из каталога Modrinth, CurseForge или FTB.
-              </p>
+              <div className="muted lib-empty">
+                <span className="slot-cross" aria-hidden="true" />
+                <span>Готовых сборок нет — установите из каталога Modrinth, CurseForge или FTB.</span>
+              </div>
             ) : (
               <div className="mods-grid">{instanceGrid(packs)}</div>
             )}
@@ -325,9 +331,10 @@ export function Play() {
               </button>
             </div>
             {own.length === 0 ? (
-              <p className="muted lib-empty">
-                Своя сборка — ванила или загрузчик под выбранную версию, соберётся сама.
-              </p>
+              <div className="muted lib-empty">
+                <span className="slot-cross" aria-hidden="true" />
+                <span>Своя сборка — ванила или загрузчик под выбранную версию, соберётся сама.</span>
+              </div>
             ) : (
               <div className="mods-grid">{instanceGrid(own)}</div>
             )}
@@ -342,9 +349,10 @@ export function Play() {
               </button>
             </div>
             {installed.length === 0 ? (
-              <p className="muted lib-empty">
-                Ничего не скачано — выберите версию сверху и нажмите «Играть».
-              </p>
+              <div className="muted lib-empty">
+                <span className="slot-cross" aria-hidden="true" />
+                <span>Ничего не скачано — выберите версию сверху и нажмите «Играть».</span>
+              </div>
             ) : (
               <div className="ver-grid">
                 {installed.map((v) => (

@@ -46,6 +46,18 @@
   --font-pixel: 'Pixuf', 'Press Start 2P', 'Pixelify Sans', monospace;
   --font-ui: 'Pixuf', 'Pixelify Sans', system-ui, sans-serif;
 
+  /* Атмосфера: триплеты RGB для rgba() в слоях фона и цвета частиц.
+     Темы (html[data-theme]) переопределяют весь блок переменных */
+  --sky: 61, 85, 232;
+  --ink-rgb: 10, 12, 16;
+  --p1: #3d55e8;
+  --p2: #6fbf83;
+  --p3: #8f5f9f;
+  --p4: #e6e8eb;
+  --p5: #f0b64b;
+  --grass-top: #5b8f3a;
+  --grass-dirt: #7a5a34;
+
   font-family: var(--font-ui);
   font-size: 15px;
   line-height: 1.45;
@@ -99,6 +111,77 @@ body {
   overflow: hidden;
 }
 
+/* Атмосфера поверх сетки, но под контентом: ступенчатое «небо» сверху
+   и затемнение над нижней панелью. Жёсткие полосы — никаких мягких градиентов.
+   Цвет неба — триплет --sky, темы перекрашивают */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(var(--sky), 0.1) 0 24px,
+      rgba(var(--sky), 0.07) 24px 48px,
+      rgba(var(--sky), 0.045) 48px 72px,
+      rgba(var(--sky), 0.025) 72px 96px,
+      rgba(var(--sky), 0.01) 96px 120px,
+      rgba(var(--sky), 0) 120px
+    ),
+    linear-gradient(
+      0deg,
+      rgba(var(--ink-rgb), 0.5) 0 26px,
+      rgba(var(--ink-rgb), 0.28) 26px 44px,
+      rgba(var(--ink-rgb), 0.12) 44px 60px,
+      rgba(var(--ink-rgb), 0) 60px
+    );
+}
+
+/* Пиксель-частицы, медленно поднимающиеся снизу вверх (стиль портала).
+   Параметры каждого квадратика (цвет, скорость, прозрачность) задаёт App.tsx,
+   цвета — переменные --p1..--p5, темы их перекрашивают */
+.bg-fx {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bg-fx i {
+  position: absolute;
+  bottom: -10px;
+  animation: bg-rise var(--dur, 30s) linear infinite;
+}
+
+@keyframes bg-rise {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+
+  6% {
+    opacity: var(--o, 0.35);
+  }
+
+  86% {
+    opacity: var(--o, 0.35);
+  }
+
+  100% {
+    transform: translateY(-108vh);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-fx {
+    display: none;
+  }
+}
+
 #root,
 .app {
   display: flex;
@@ -112,13 +195,27 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 56px;
+  height: 60px;
   flex-shrink: 0;
-  padding: 0 14px;
+  padding: 4px 14px 0;
   background: var(--bg-panel);
   border-top: 2px solid var(--ink);
-  box-shadow: inset 0 4px 0 var(--border-soft);
+  position: relative;
   z-index: 5;
+}
+
+/* Полоса травы во всю ширину над панелью: верхний срез блока травы.
+   Цвета — переменные, темы перекрашивают (у «Ада» — багровая земля) */
+.bottombar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -8px;
+  height: 6px;
+  background: linear-gradient(var(--grass-top) 0 3px, var(--grass-dirt) 3px 6px);
+  border-top: 2px solid var(--ink);
+  pointer-events: none;
 }
 
 .logo-wrap {
@@ -127,6 +224,39 @@ body {
   gap: 2px;
   margin-right: 12px;
   flex-shrink: 0;
+  position: relative;
+}
+
+/* Жёлтый сплэш под углом — приветствие на каждый запуск */
+.splash {
+  position: absolute;
+  left: 34px;
+  bottom: 34px;
+  transform: rotate(-12deg);
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffff55;
+  text-shadow: 2px 2px 0 var(--ink);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 6;
+  animation: splash-pulse 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes splash-pulse {
+  from {
+    transform: rotate(-12deg) scale(1);
+  }
+
+  to {
+    transform: rotate(-12deg) scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash {
+    animation: none;
+  }
 }
 
 .logo {
@@ -211,6 +341,10 @@ body {
   color: var(--text);
 }
 
+.nav:not(.on):hover {
+  transform: translate(-1px, -1px);
+}
+
 .nav.on {
   background: var(--accent);
   border-color: var(--ink);
@@ -229,7 +363,8 @@ body {
 /* На узком окне пункты меню сжимаются, правый чип — первым сдает место */
 @media (max-width: 1020px) {
   .bar-right .acc-chip .mode,
-  .bar-right .side-ver {
+  .bar-right .side-ver,
+  .splash {
     display: none;
   }
 
@@ -392,6 +527,21 @@ button {
   gap: 10px;
 }
 
+/* Живые карточки: лёгкий пиксельный сдвиг-подъём */
+.mod-card,
+.ver-card,
+.shot-card,
+.world-card {
+  transition: transform 80ms steps(2, jump-none);
+}
+
+.mod-card:hover,
+.ver-card:hover,
+.shot-card:hover,
+.world-card:hover {
+  transform: translate(-1px, -1px);
+}
+
 .mod-card.on {
   border-color: var(--accent);
 }
@@ -507,26 +657,7 @@ button {
   text-align: center;
 }
 
-/* Крестик-пустышка как слот без предмета */
-.mods-empty-icon {
-  width: 34px;
-  height: 34px;
-  border: 2px solid var(--border-soft);
-  background: var(--bg-inset);
-  position: relative;
-}
-
-.mods-empty-icon::before,
-.mods-empty-icon::after {
-  content: '';
-  position: absolute;
-  inset: 14px 2px;
-  background: #3a4048;
-}
-
-.mods-empty-icon::after {
-  inset: 2px 14px;
-}
+/* Крестик-пустышка как слот без предмета — стили в блоке «Главный экран» (.slot-cross) */
 
 .link-btn {
   border: 0;
@@ -542,6 +673,17 @@ button {
 button:disabled {
   opacity: 0.55;
   cursor: default;
+}
+
+/* Главная зелёная кнопка запуска — крупнее обычной */
+.btn-cta {
+  font-size: 16px;
+  padding: 10px 22px;
+  letter-spacing: 0.5px;
+}
+
+.btn-cta:not(:disabled):hover {
+  filter: brightness(1.12);
 }
 
 input::placeholder,
@@ -639,6 +781,32 @@ textarea::placeholder {
 
 .lib-head .retro-title {
   font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Слот-буллет перед заголовком секции — цвет повторяет слоты панели */
+.lib-head .retro-title::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  background: var(--sec, #6a7280);
+  border: 2px solid var(--ink);
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.lib-section:nth-of-type(1) {
+  --sec: #5b8f3a;
+}
+
+.lib-section:nth-of-type(2) {
+  --sec: #c17b3f;
+}
+
+.lib-section:nth-of-type(3) {
+  --sec: #8a8f98;
 }
 
 .lib-action {
@@ -650,6 +818,35 @@ textarea::placeholder {
   background: var(--bg-inset);
   padding: 18px 16px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Крестик-пустышка «слот без предмета» — общий для пустых состояний */
+.mods-empty-icon,
+.slot-cross {
+  width: 34px;
+  height: 34px;
+  border: 2px solid var(--border-soft);
+  background: var(--bg-inset);
+  position: relative;
+}
+
+.mods-empty-icon::before,
+.mods-empty-icon::after,
+.slot-cross::before,
+.slot-cross::after {
+  content: '';
+  position: absolute;
+  inset: 14px 2px;
+  background: #3a4048;
+}
+
+.mods-empty-icon::after,
+.slot-cross::after {
+  inset: 2px 14px;
 }
 
 .loader-install {
