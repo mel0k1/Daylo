@@ -23,13 +23,32 @@ pub struct AiPick {
     pub file_name: String,
 }
 
-// Промпт: модель отдаёт только JSON-массив англ. поисковых запросов к Modrinth
+// Промпт: модель отдаёт только JSON-массив англ. поисковых запросов к Modrinth.
+// LLM-шки любят экономить и выдают 3-5 модов даже когда просят больше — поэтому
+// требуем большой список с обязательными категориями: сборка из пяти модов
+// никому не нужна
 fn plan_prompt(user: &str, mc_version: &str, loader: &str) -> String {
     format!(
-        "Собери список модов для сборки Minecraft {mc_version} на загрузчике {loader}. \
-Тема сборки от пользователя: {user}. \
-Верни ТОЛЬКО JSON-массив из 5-10 строк — точные английские названия модов из каталога Modrinth, \
-совместимых с этой версией игры и загрузчиком. Без markdown, без пояснений, без дубликатов."
+        "Собери основу большой сборки Minecraft {mc_version} на загрузчике {loader}. \
+Тема от пользователя: {user} — это сюжет сборки, а не ограничение количества модов. \
+Верни ТОЛЬКО JSON-массив из 18-22 строк — точные английские названия модов из каталога Modrinth, \
+совместимых с этой версией игры и загрузчиком. Минимум 15, меньше — брак. \
+Обязательно накрой категории: оптимизация, библиотеки/API, рецепты и инвентарь, миникарта или карта, \
+хранилище, генерация мира, исследования и данжи, еда или ферма, инструменты, декор и стройка — \
+и добавь моды по теме пользователя. Без номера версии в названиях, без markdown, без пояснений, \
+без дубликатов."
+    )
+}
+
+// Добор: второй раунд, когда модов всё ещё меньше десяти — просим другие,
+// не дублируя уже найденные
+fn more_prompt(user: &str, mc_version: &str, loader: &str, have: &[String]) -> String {
+    format!(
+        "Собираем сборку Minecraft {mc_version} на загрузчике {loader}. Тема: {user}. \
+Уже выбраны: {}. \
+Верни ТОЛЬКО JSON-массив из 12 строк — названия ДРУГИХ модов с Modrinth, совместимых \
+с этой версией и загрузчиком, не повторяя уже выбранные. Без markdown и пояснений.",
+        have.join(", ")
     )
 }
 
@@ -151,72 +170,132 @@ fn gateway_status(code: u16) -> String {
     }
 }
 
+// Версии для пачки проектов одним параллельным заходом: сначала вариант под
+// наш загрузчик, иначе любая совместимая с версией игры. Проекты без
+// подходящей версии просто выпадают, порядок сохраняется
+async fn resolve(hits: &[modrinth::SearchHit], gv: &str, loader: &str) -> Vec<AiPick> {
+    let versions: Vec<Vec<modrinth::ModVersion>> = join_all(hits.iter().map(|h| {
+        let pid = h.project_id.clone();
+        let gv = gv.to_string();
+        async move { modrinth::versions(&pid, &gv).await.ok().unwrap_or_default() }
+    }))
+    .await;
+    hits.iter()
+        .zip(versions)
+        .filter_map(|(hit, vers)| {
+            let chosen = vers
+                .iter()
+                .find(|v| v.loaders.iter().any(|l| l.eq_ignore_ascii_case(loader)))
+                .or_else(|| vers.first())?;
+            Some(AiPick {
+                project_id: hit.project_id.clone(),
+                slug: hit.slug.clone(),
+                title: hit.title.clone(),
+                description: hit.description.clone(),
+                icon_url: hit.icon_url.clone(),
+                downloads: hit.downloads,
+                version_id: chosen.version_id.clone(),
+                file_name: chosen.file_name.clone(),
+            })
+        })
+        .collect()
+}
+
 // План сборки: промпт -> список модов -> живые проекты Modrinth с версиями.
-// Сеть — двумя параллельными волнами: сначала все поиски разом, затем все
-// версии найденных проектов. Последовательный вариант жил бы в 5-10 раз дольше:
-// до 24 запросов по ~секунде каждый
+// Чтобы план не съёживался до трёх модов, поиск идёт с запасом: до 24 запросов
+// параллельно, у каждого держим до трёх хитов (первый — в работу, остальные —
+// в резерв), короткий план добираем из резерва, а если и там меньше десяти —
+// второй раунд к модели с просьбой назвать другие моды
 pub async fn plan(user: &str, mc_version: &str, loader: &str) -> Result<Vec<AiPick>, String> {
     if user.trim().is_empty() {
         return Err("опиши сборку словами".into());
     }
     let queries = llm_queries(&plan_prompt(user, mc_version, loader)).await?;
-
-    // Волна 1: параллельные поиски, берём топ-хит каждого запроса;
-    // join_all сохраняет порядок — план читается в порядке запросов модели
     let gv = mc_version.to_string();
-    let tops: Vec<Option<modrinth::SearchHit>> = join_all(queries.iter().take(12).map(|q| {
+
+    // Волна 1: параллельные поиски, до трёх хитов на запрос
+    let per_query: Vec<Vec<modrinth::SearchHit>> = join_all(queries.iter().take(24).map(|q| {
         let q = q.clone();
         let gv = gv.clone();
         async move {
             modrinth::search(&q, &gv)
                 .await
-                .ok()
-                .and_then(|hits| hits.into_iter().next())
+                .map(|hits| hits.into_iter().take(3).collect())
+                .unwrap_or_default()
         }
     }))
     .await;
+
+    // Дубликаты выкидываем, порядок сохраняем — план читается в порядке
+    // запросов модели. Первый неповторяющийся хит запроса — в работу,
+    // остальные — в резерв на случай отсутствия версии под игру
     let mut seen: HashSet<String> = HashSet::new();
-    let mut tops: Vec<modrinth::SearchHit> = tops
-        .into_iter()
-        .flatten()
-        .filter(|h| seen.insert(h.project_id.clone()))
-        .collect();
-    if tops.is_empty() {
+    let mut primary: Vec<modrinth::SearchHit> = Vec::new();
+    let mut reserve: Vec<modrinth::SearchHit> = Vec::new();
+    for hits in per_query {
+        let mut took_top = false;
+        for h in hits {
+            if seen.insert(h.project_id.clone()) {
+                if took_top {
+                    reserve.push(h);
+                } else {
+                    primary.push(h);
+                    took_top = true;
+                }
+            }
+        }
+    }
+    if primary.is_empty() {
         return Err("модель не подобрала модов под эту игру — переформулируй запрос".into());
     }
 
     // Волна 2: параллельные списки версий под каждый найденный проект
-    let versions: Vec<Vec<modrinth::ModVersion>> = join_all(tops.iter().map(|h| {
-        let pid = h.project_id.clone();
-        let gv = gv.clone();
-        async move { modrinth::versions(&pid, &gv).await.ok().unwrap_or_default() }
-    }))
-    .await;
+    let mut picks = resolve(&primary, &gv, loader).await;
 
-    let mut picks: Vec<AiPick> = Vec::new();
-    for (hit, vers) in tops.drain(..).zip(versions) {
-        // Сначала версия под наш загрузчик, иначе любая совместимая с игрой
-        let chosen = vers
-            .iter()
-            .find(|v| v.loaders.iter().any(|l| l.eq_ignore_ascii_case(loader)))
-            .or_else(|| vers.first());
-        let Some(v) = chosen else {
-            continue;
-        };
-        picks.push(AiPick {
-            project_id: hit.project_id,
-            slug: hit.slug,
-            title: hit.title,
-            description: hit.description,
-            icon_url: hit.icon_url,
-            downloads: hit.downloads,
-            version_id: v.version_id.clone(),
-            file_name: v.file_name.clone(),
-        });
+    // Топ-ап: короткий план добираем резервными хитами тех же поисков —
+    // это дешевле второго раунда к модели
+    if picks.len() < 12 && !reserve.is_empty() {
+        let extra = resolve(&reserve[..reserve.len().min(24)], &gv, loader).await;
+        let mut have: HashSet<String> = picks.iter().map(|p| p.project_id.clone()).collect();
+        for p in extra {
+            if have.insert(p.project_id.clone()) {
+                picks.push(p);
+            }
+        }
     }
+
+    // Всё ещё меньше десяти — второй раунд к модели: другие моды, кроме уже
+    // выбранных. Не критично, если раунд сорвался — план уже непустой
+    if picks.len() < 10 {
+        let have: Vec<String> = picks.iter().map(|p| p.title.clone()).collect();
+        if let Ok(more) = llm_queries(&more_prompt(user, mc_version, loader, &have)).await {
+            let tops: Vec<Option<modrinth::SearchHit>> = join_all(more.iter().take(12).map(|q| {
+                let q = q.clone();
+                let gv = gv.clone();
+                async move {
+                    modrinth::search(&q, &gv)
+                        .await
+                        .ok()
+                        .and_then(|hits| hits.into_iter().next())
+                }
+            }))
+            .await;
+            let tops: Vec<modrinth::SearchHit> = tops.into_iter().flatten().collect();
+            let extra = resolve(&tops, &gv, loader).await;
+            let mut have: HashSet<String> = picks.iter().map(|p| p.project_id.clone()).collect();
+            for p in extra {
+                if have.insert(p.project_id.clone()) {
+                    picks.push(p);
+                }
+            }
+        }
+    }
+
     if picks.is_empty() {
         return Err("модель не подобрала модов под эту игру — переформулируй запрос".into());
     }
+    // Подрезаем слишком щедрую модель: больше тридцати модов в основе не нужно
+    picks.truncate(30);
     Ok(picks)
 }
 
@@ -230,6 +309,23 @@ mod tests {
         assert!(p.contains("1.20.1"));
         assert!(p.contains("fabric"));
         assert!(p.contains("техно и магия"));
+        assert!(p.contains("JSON"));
+        // Просим большую сборку, иначе модель выдаёт три мода
+        assert!(p.contains("18-22"));
+        assert!(p.contains("Минимум 15"));
+    }
+
+    #[test]
+    fn more_prompt_lists_existing() {
+        let p = more_prompt(
+            "техно и магия",
+            "1.20.1",
+            "fabric",
+            &["Create".into(), "JEI".into()],
+        );
+        assert!(p.contains("Create"));
+        assert!(p.contains("JEI"));
+        assert!(p.contains("12"));
         assert!(p.contains("JSON"));
     }
 

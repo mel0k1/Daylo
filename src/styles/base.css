@@ -195,6 +195,88 @@ body::before {
   height: 100%;
 }
 
+/* ---------- Кастомный титлбар ---------- */
+
+/* Рамка окна наша: таскаем за полосу, двойной клик разворачивает окно,
+   справа — плоские кнопки «свернуть / развернуть / закрыть».
+   Декоративным детям полосы — pointer-events: none, иначе они перехватывают
+   mousedown и таскание не срабатывает */
+.titlebar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 36px;
+  flex-shrink: 0;
+  background: var(--bg-panel);
+  border-bottom: 2px solid var(--ink);
+  z-index: 6;
+  user-select: none;
+}
+
+/* Бренд по центру полосы, как у Millida: кнопки окна его не сдвигают */
+.titlebar-brand {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.titlebar-logo {
+  font-family: var(--font-pixel);
+  font-size: 14px;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 2px 2px 0 var(--ink);
+  letter-spacing: 1px;
+}
+
+/* Мини-полоска травы у бренда — рифма к логотипу нижней панели */
+.titlebar-strip {
+  width: 12px;
+  height: 6px;
+  pointer-events: none;
+  background: linear-gradient(var(--grass-top) 0 50%, var(--grass-dirt) 50% 100%);
+  border: 2px solid var(--ink);
+}
+
+.win-controls {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+}
+
+.win-btn {
+  width: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.win-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.win-btn:active {
+  background: var(--bg-inset);
+}
+
+.win-btn.close:hover {
+  background: var(--red);
+  color: #fff;
+}
+
 /* ---------- Нижняя панель навигации ---------- */
 
 .bottombar {

@@ -15,6 +15,12 @@ const ru = {
   'nav.shots': 'Скриншоты',
   'nav.settings': 'Настройки',
 
+  // Окно (кастомный титлбар)
+  'win.minimize': 'Свернуть',
+  'win.maximize': 'Развернуть',
+  'win.restore': 'Восстановить размер',
+  'win.close': 'Закрыть',
+
   // Общие действия
   'action.play': 'Играть',
   'action.stop': 'Остановить',
@@ -303,6 +309,12 @@ const en: typeof ru = {
   'nav.worlds': 'Worlds',
   'nav.shots': 'Screenshots',
   'nav.settings': 'Settings',
+
+  // Окно (кастомный титлбар)
+  'win.minimize': 'Minimize',
+  'win.maximize': 'Maximize',
+  'win.restore': 'Restore size',
+  'win.close': 'Close',
 
   'action.play': 'Play',
   'action.stop': 'Stop',

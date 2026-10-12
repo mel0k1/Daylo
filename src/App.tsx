@@ -19,6 +19,7 @@ import { Worlds } from './screens/Worlds'
 import { Shots } from './screens/Shots'
 import { Settings } from './screens/Settings'
 import { CrashModal } from './components/CrashModal'
+import { TitleBar } from './components/TitleBar'
 
 const navItems: {
   id: 'play' | 'packs' | 'mods' | 'worlds' | 'shots' | 'settings'
@@ -98,6 +99,7 @@ export default function App() {
           />
         ))}
       </div>
+      <TitleBar />
       <main className="content">
         {screen === 'play' && <Play />}
         {screen === 'packs' && <Packs />}
