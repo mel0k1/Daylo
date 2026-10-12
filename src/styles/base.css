@@ -57,6 +57,8 @@
   --p5: #f0b64b;
   --grass-top: #5b8f3a;
   --grass-dirt: #7a5a34;
+  --check-a: #14171c;
+  --splash: #ffff55;
 
   font-family: var(--font-ui);
   font-size: 15px;
@@ -104,7 +106,12 @@
 body {
   background-color: var(--bg-page);
   /* Едва заметная пиксельная сетка вместо плоского фона */
-  background-image: conic-gradient(#14171c 25%, #101216 0 50%, #14171c 0 75%, #101216 0);
+  background-image: conic-gradient(
+    var(--check-a) 25%,
+    var(--bg-page) 0 50%,
+    var(--check-a) 0 75%,
+    var(--bg-page) 0
+  );
   background-size: 28px 28px;
   color: var(--text);
   height: 100vh;
@@ -235,7 +242,7 @@ body::before {
   transform: rotate(-12deg);
   font-size: 13px;
   font-weight: 700;
-  color: #ffff55;
+  color: var(--splash);
   text-shadow: 2px 2px 0 var(--ink);
   white-space: nowrap;
   pointer-events: none;
@@ -268,10 +275,10 @@ body::before {
   letter-spacing: 1px;
 }
 
-/* Полоска «травы» под логотипом */
+/* Полоска «травы» под логотипом — те же цвета, что и полоса над панелью */
 .logo-strip {
   height: 3px;
-  background: linear-gradient(#5b8f3a 0 50%, #7a5a34 50% 100%);
+  background: linear-gradient(var(--grass-top) 0 50%, var(--grass-dirt) 50% 100%);
   border: 2px solid var(--ink);
 }
 
@@ -1487,6 +1494,161 @@ textarea::placeholder {
   transition: width 0.3s;
 }
 
+/* ---------- Темы оформления ---------- */
+
+/* Светлая — «бумажная», тёплый песчаник */
+html[data-theme='light'] {
+  --bg-page: #d9d3c4;
+  --bg-panel: #ece7da;
+  --bg-inset: #dcd5c4;
+  --border-soft: #b8ae98;
+  --accent: #3f63c8;
+  --accent-bright: #517ae0;
+  --green: #3d7a4a;
+  --red: #a03030;
+  --warn: #b07818;
+  --text: #2e2a20;
+  --text-dim: #4a4436;
+  --muted: #7d7460;
+  --ink: #2a2620;
+  --bg-hover: #cfc7b4;
+  --ok: #3f7a4f;
+  --danger: #c04854;
+  --link: #3059c0;
+
+  --bg-button: #3f63c8;
+  --text-button: #ffffff;
+  --border-button: #2a2620;
+  --shadow-button: #2a2620;
+  --bg-card: #ece7da;
+  --text-card: #2e2a20;
+  --border-card: #b8ae98;
+  --shadow-card: #c5bca6;
+  --bg-input: #dcd5c4;
+  --text-input: #2e2a20;
+  --border-input: #b8ae98;
+  --bg-dropdown: #ece7da;
+  --text-dropdown: #2e2a20;
+  --border-dropdown: #b8ae98;
+  --shadow-dropdown: #c5bca6;
+  --color-progressbar: #3f63c8;
+  --border-progressbar: #2a2620;
+
+  --sky: 63, 99, 200;
+  --ink-rgb: 42, 38, 32;
+  --p1: #3f63c8;
+  --p2: #3d7a4a;
+  --p3: #7a5a9f;
+  --p4: #7d7460;
+  --p5: #b07818;
+  --grass-top: #5b8f3a;
+  --grass-dirt: #7a5a34;
+  --check-a: #e0dac9;
+  --splash: #c9971c;
+}
+
+/* Равнина — сумеречная зелень луга */
+html[data-theme='plains'] {
+  --bg-page: #131a10;
+  --bg-panel: #1b2416;
+  --bg-inset: #151d11;
+  --border-soft: #2e3a24;
+  --accent: #5b8f3a;
+  --accent-bright: #71ad4a;
+  --green: #4f8f43;
+  --red: #a03030;
+  --warn: #f0b64b;
+  --text: #e2e8da;
+  --text-dim: #b9c4ac;
+  --muted: #8a967c;
+  --ink: #0c100a;
+  --bg-hover: #232e1c;
+  --ok: #85c46a;
+  --danger: #e5636f;
+  --link: #9fd07f;
+
+  --bg-button: #5b8f3a;
+  --text-button: #ffffff;
+  --border-button: #0c100a;
+  --shadow-button: #0c100a;
+  --bg-card: #1b2416;
+  --text-card: #e2e8da;
+  --border-card: #3a4a2c;
+  --shadow-card: #0c100a;
+  --bg-input: #151d11;
+  --text-input: #e2e8da;
+  --border-input: #3a4a2c;
+  --bg-dropdown: #1b2416;
+  --text-dropdown: #e2e8da;
+  --border-dropdown: #3a4a2c;
+  --shadow-dropdown: #0c100a;
+  --color-progressbar: #5b8f3a;
+  --border-progressbar: #0c100a;
+
+  --sky: 91, 143, 58;
+  --ink-rgb: 12, 16, 10;
+  --p1: #71ad4a;
+  --p2: #85c46a;
+  --p3: #8f9f5f;
+  --p4: #dfe8d4;
+  --p5: #f0b64b;
+  --grass-top: #6fae46;
+  --grass-dirt: #6a4e2e;
+  --check-a: #172013;
+  --splash: #ffff55;
+}
+
+/* Ад — багровый инферно: кримсон-нилайум вместо травы */
+html[data-theme='nether'] {
+  --bg-page: #1a0f0f;
+  --bg-panel: #261616;
+  --bg-inset: #1c1010;
+  --border-soft: #452626;
+  --accent: #b04838;
+  --accent-bright: #d05a44;
+  --green: #6b8f3a;
+  --red: #b04838;
+  --warn: #f0b64b;
+  --text: #f0e2da;
+  --text-dim: #cdb4a8;
+  --muted: #a08578;
+  --ink: #140808;
+  --bg-hover: #33201c;
+  --ok: #9fbf6a;
+  --danger: #e5735f;
+  --link: #f0a07a;
+
+  --bg-button: #b04838;
+  --text-button: #ffffff;
+  --border-button: #140808;
+  --shadow-button: #140808;
+  --bg-card: #261616;
+  --text-card: #f0e2da;
+  --border-card: #4a2c26;
+  --shadow-card: #140808;
+  --bg-input: #1c1010;
+  --text-input: #f0e2da;
+  --border-input: #4a2c26;
+  --bg-dropdown: #261616;
+  --text-dropdown: #f0e2da;
+  --border-dropdown: #4a2c26;
+  --shadow-dropdown: #140808;
+  --color-progressbar: #b04838;
+  --border-progressbar: #140808;
+
+  --sky: 176, 72, 56;
+  --ink-rgb: 20, 8, 8;
+  --p1: #d05a44;
+  --p2: #e58a5f;
+  --p3: #bf6a3f;
+  --p4: #f0dcd0;
+  --p5: #f0b64b;
+  --grass-top: #7a2a24;
+  --grass-dirt: #401c16;
+  --check-a: #211212;
+  --splash: #ffff55;
+}
+
 .upd-err {
   font-size: 11px;
   max-width: 200px;
@@ -1729,6 +1891,33 @@ textarea::placeholder {
 :focus-visible {
   outline: 2px solid var(--accent-bright);
   outline-offset: 1px;
+}
+
+/* ---------- Анимация прогресса: бегущие пиксельные полоски ---------- */
+
+/* Заливка — единственный дочерний div контейнера pixel-retroui
+   ProgressBar (наш класс вешается на контейнер), чип обновления — свой */
+.pbar-fx > div,
+.update-bar-fill {
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.22) 0 6px,
+    transparent 6px 12px
+  );
+  animation: pbar-stripes 0.6s steps(6) infinite;
+}
+
+@keyframes pbar-stripes {
+  to {
+    background-position: 12px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pbar-fx > div,
+  .update-bar-fill {
+    animation: none;
+  }
 }
 
 /* Каталог сборок и список установленных */

@@ -287,11 +287,11 @@ export function Play() {
 
       {statusVisible && (
         <div className="home-status">
-          {(busy || installing) && <ProgressBar progress={progress} size="lg" />}
+          {(busy || installing) && <ProgressBar className="pbar-fx" progress={progress} size="lg" />}
           {inst.progress && (
             <Card className="pack-progress">
               <p className="muted">{inst.progress}</p>
-              <ProgressBar progress={inst.packPct} size="lg" />
+              <ProgressBar className="pbar-fx" progress={inst.packPct} size="lg" />
             </Card>
           )}
           {stage && <p className="muted">{stage}</p>}

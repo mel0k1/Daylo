@@ -330,7 +330,7 @@ export function Packs() {
       {inst.progress && (
         <Card className="pack-progress">
           <p className="muted">{inst.progress}</p>
-          <ProgressBar progress={inst.packPct} size="lg" />
+          <ProgressBar className="pbar-fx" progress={inst.packPct} size="lg" />
         </Card>
       )}
       {inst.stage && !inst.progress && <p className="muted">{inst.stage}</p>}

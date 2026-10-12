@@ -10,6 +10,7 @@ import {
 } from './components/icons'
 import { useAccount } from './state/account'
 import { useGame } from './state/game'
+import { initTheme } from './state/theme'
 import { Play } from './screens/Play'
 import { Packs } from './screens/Packs'
 import { Mods } from './screens/Mods'
@@ -85,6 +86,7 @@ export default function App() {
   const dropCrash = useGame((s) => s.dropCrash)
 
   useEffect(() => {
+    initTheme()
     void useAccount.getState().init()
     // Версия, проверка обновлений и слушатель прогресса — в общем сторе
     useUi.getState().updateInit()

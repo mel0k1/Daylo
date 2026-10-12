@@ -18,6 +18,7 @@ import {
 import { onPackProgress, onPackImported, type PackProgress } from '../ipc/events'
 import { useAccount } from '../state/account'
 import { useGame, NICK_RE } from '../state/game'
+import { useTheme, type ThemeName } from '../state/theme'
 import { useUi } from '../state/ui'
 import { hasTauri } from '../ipc/tauri'
 
@@ -547,6 +548,36 @@ const choiceLabel = (i: InstanceInfo): string => {
   return i.id
 }
 
+// Тема оформления: чистый фронт, применяется сразу, работает без ядра
+const THEME_LABEL: Record<ThemeName, string> = {
+  dark: 'Тьма',
+  light: 'Светлая',
+  plains: 'Равнина',
+  nether: 'Ад',
+}
+
+function ThemeCard() {
+  const theme = useTheme((s) => s.theme)
+  const setTheme = useTheme((s) => s.set)
+  return (
+    <Card className="play-card">
+      <h2 className="retro-title">Оформление</h2>
+      <div className="tabs">
+        {(Object.keys(THEME_LABEL) as ThemeName[]).map((t) => (
+          <button
+            key={t}
+            className={theme === t ? 'tab on' : 'tab'}
+            onClick={() => setTheme(t)}
+          >
+            {THEME_LABEL[t]}
+          </button>
+        ))}
+      </div>
+      <p className="muted">Тема применяется сразу и запоминается до следующего запуска.</p>
+    </Card>
+  )
+}
+
 export function Settings() {
   const [choices, setChoices] = useState<Choice[]>([])
   const [version, setVersion] = useState(localStorage.getItem('daylo.cfg.version') ?? '')
@@ -690,6 +721,8 @@ export function Settings() {
       </Card>
 
       {online && <WindowCard />}
+
+      <ThemeCard />
 
       {online && <BackupCard />}
 
