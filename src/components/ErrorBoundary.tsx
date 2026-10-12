@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { t } from '../i18n'
 
 interface Props {
   children: ReactNode
@@ -27,14 +28,11 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!error) return this.props.children
     return (
       <div className="screen">
-        <h1 className="retro-title">Интерфейс упал</h1>
-        <p>Произошла ошибка отрисовки:</p>
+        <h1 className="retro-title">{t('eb.title')}</h1>
+        <p>{t('eb.renderError')}</p>
         <p className="error">{error.message || String(error)}</p>
-        <p className="muted">
-          Сборки, настройки и миры не пострадали. Перезапустите интерфейс — если ошибка
-          повторяется на каждом старте, пришлите автору текст из этого экрана.
-        </p>
-        <button onClick={() => window.location.reload()}>Перезапустить интерфейс</button>
+        <p className="muted">{t('eb.note')}</p>
+        <button onClick={() => window.location.reload()}>{t('eb.restart')}</button>
       </div>
     )
   }

@@ -19,6 +19,7 @@ import {
   type LoaderBuild,
 } from '../ipc/commands'
 import { hasTauri } from '../ipc/tauri'
+import { useT } from '../i18n'
 
 type OwnLoader = 'fabric' | 'quilt' | 'forge' | 'neoforge'
 
@@ -32,6 +33,7 @@ const AI_LOADERS: { id: OwnLoader; label: string }[] = [
 // ИИ-сборщик: описание словами -> план модов -> готовая сборка.
 // План строит бесплатный безключевой LLM-шлюз, моды ищутся в Modrinth.
 export function AiBuild() {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [name, setName] = useState('')
@@ -114,7 +116,7 @@ export function AiBuild() {
     setError('')
     const picks = plan.filter((p) => !skipped.has(p.project_id))
     try {
-      const id = await instanceCreate(name.trim() || 'ИИ-сборка', mcVersion, loader, build)
+      const id = await instanceCreate(name.trim() || t('ai.defaultName'), mcVersion, loader, build)
       let ok = 0
       const failed: string[] = []
       for (const p of picks) {
@@ -126,7 +128,7 @@ export function AiBuild() {
         }
       }
       if (failed.length > 0) {
-        setError(`Не поставились: ${failed.join(', ')}`)
+        setError(t('ai.failedMods', { list: failed.join(', ') }))
       }
       setPlan(null)
       setPrompt('')
@@ -141,10 +143,8 @@ export function AiBuild() {
   return (
     <Card className="mods-installed ai-build">
       <div className="mods-head">
-        <Button onClick={() => setOpen(!open)}>{open ? 'Свернуть' : 'ИИ-сборка'}</Button>
-        <p className="muted mirrors-note">
-          Опиши сборку словами — моды подберёт нейросеть и поставит в новую сборку. Бесплатно.
-        </p>
+        <Button onClick={() => setOpen(!open)}>{open ? t('own.collapse') : t('ai.toggle')}</Button>
+        <p className="muted mirrors-note">{t('ai.note')}</p>
       </div>
       {open && (
         <>
@@ -153,11 +153,11 @@ export function AiBuild() {
               className="mods-query"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Название сборки"
+              placeholder={t('own.namePlaceholder')}
               maxLength={32}
             />
             <DropdownMenu>
-              <DropdownMenuTrigger>{mcVersion || 'Версия…'}</DropdownMenuTrigger>
+              <DropdownMenuTrigger>{mcVersion || t('placeholder.version')}</DropdownMenuTrigger>
               <DropdownMenuContent className="version-list">
                 {releases.map((v) => (
                   <DropdownMenuItem key={v.id}>
@@ -184,7 +184,7 @@ export function AiBuild() {
             className="ai-prompt"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Например: лёгкая техно-сборка с автоматизацией и хранением энергии, немного магии"
+            placeholder={t('ai.promptPlaceholder')}
             rows={3}
             maxLength={500}
           />
@@ -194,17 +194,17 @@ export function AiBuild() {
                 <DropdownMenuTrigger>
                   {build
                     ? builds.find((b) => b.version === build)?.recommended
-                      ? `${build} · рекоменд.`
+                      ? `${build}${t('suffix.rec')}`
                       : build
-                    : 'Сборка…'}
+                    : t('placeholder.build')}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="version-list">
                   {builds.map((b) => (
                     <DropdownMenuItem key={b.version}>
                       <div className="version-item" onClick={() => setBuild(b.version)}>
                         {b.version}
-                        {b.recommended ? ' · рекоменд.' : ''}
-                        {!b.stable ? ' · тест' : ''}
+                        {b.recommended ? t('suffix.rec') : ''}
+                        {!b.stable ? t('suffix.test') : ''}
                       </div>
                     </DropdownMenuItem>
                   ))}
@@ -215,14 +215,14 @@ export function AiBuild() {
               onClick={() => void buildPlan()}
               disabled={!!busy || !mcVersion || prompt.trim().length < 3}
             >
-              {busy === 'plan' ? 'Думаем…' : 'Собрать план'}
+              {busy === 'plan' ? t('busy.thinking') : t('ai.makePlan')}
             </Button>
           </div>
 
           {plan && plan.length > 0 && (
             <div className="ai-plan">
               <p className="muted ai-plan-note">
-                План: {plan.length} модов. Сними галочку с ненужных и собирай.
+                {t('ai.planNote', { n: plan.length })}
               </p>
               {plan.map((p) => (
                 <label key={p.project_id} className="ai-pick">
@@ -246,14 +246,14 @@ export function AiBuild() {
               <div className="play-row">
                 <Button bg="#2f7d4f" onClick={() => void install()} disabled={!!busy}>
                   {busy === 'install'
-                    ? 'Ставим…'
-                    : `Создать сборку (${plan.length - skipped.size} модов)`}
+                    ? t('busy.installing')
+                    : t('ai.create', { n: plan.length - skipped.size })}
                 </Button>
               </div>
             </div>
           )}
           {plan && plan.length === 0 && (
-            <p className="muted">Ничего не нашлось — попробуй переформулировать.</p>
+            <p className="muted">{t('ai.none')}</p>
           )}
           {error && <p className="error">{error}</p>}
         </>

@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
 } from 'pixel-retroui'
 import { useGame } from '../state/game'
+import { useT, type TKey } from '../i18n'
 import { useAccount } from '../state/account'
 import { useInstances } from '../state/instances'
 import { useUi } from '../state/ui'
@@ -37,11 +38,11 @@ const LOADERS: { id: LoaderTab; label: string }[] = [
   { id: 'neoforge', label: 'NeoForge' },
 ]
 
-const TYPE_LABEL: Record<string, string> = {
-  release: 'ванила',
-  snapshot: 'снапшот',
-  old_beta: 'beta',
-  old_alpha: 'alpha',
+const TYPE_KEY: Record<string, TKey> = {
+  release: 'type.release',
+  snapshot: 'type.snapshot',
+  old_beta: 'type.old_beta',
+  old_alpha: 'type.old_alpha',
 }
 
 export function Play() {
@@ -143,7 +144,7 @@ export function Play() {
       const b64 = await new Promise<string>((resolve, reject) => {
         const r = new FileReader()
         r.onload = () => resolve(String(r.result).split(',')[1] ?? '')
-        r.onerror = () => reject(new Error('не удалось прочитать файл'))
+        r.onerror = () => reject(new Error(t('error.readFile')))
         r.readAsDataURL(file)
       })
       await skinSave(name, b64)
@@ -177,7 +178,7 @@ export function Play() {
     setElySaved(false)
     try {
       const b64 = await skinLoad(name)
-      if (!b64) throw new Error('сначала выберите файл скина')
+      if (!b64) throw new Error(t('error.skinFile'))
       await elyUploadSkin(elyModel, b64)
       setElySaved(true)
       setSkinKey((k) => k + 1)
@@ -196,7 +197,8 @@ export function Play() {
       return b.release_time.localeCompare(a.release_time)
     })
   const pickerList = [...releases, ...profiles]
-  const versionLabel = version && versions.some((v) => v.id === version) ? version : 'Версия…'
+  const t = useT()
+  const versionLabel = version && versions.some((v) => v.id === version) ? version : t('placeholder.version')
 
   const packs = inst.instances.filter((i) => i.kind === 'modpack')
   const own = inst.instances.filter((i) => i.kind !== 'modpack')
@@ -244,7 +246,7 @@ export function Play() {
     <div className="home-screen">
       <Card className="topbar">
         {accMode ? (
-          <span className="nick ely-nick" title="Аккаунт авторизован">
+          <span className="nick ely-nick" title={t('play.accountAuth')}>
             {accName}
           </span>
         ) : (
@@ -252,7 +254,7 @@ export function Play() {
             className="nick"
             value={nick}
             onChange={(e) => setNick(e.target.value)}
-            placeholder="Ник"
+            placeholder={t('play.nick')}
             maxLength={16}
           />
         )}
@@ -263,7 +265,7 @@ export function Play() {
               <DropdownMenuItem key={v.id}>
                 <div className="version-item" onClick={() => setVersion(v.id)}>
                   {v.id}
-                  {v.installed ? ' · есть' : ''}
+                  {v.installed ? t('suffix.installed') : ''}
                 </div>
               </DropdownMenuItem>
             ))}
@@ -271,7 +273,7 @@ export function Play() {
         </DropdownMenu>
         {playing ? (
           <Button bg="#a03030" onClick={() => void stop()}>
-            Остановить
+            {t('action.stop')}
           </Button>
         ) : (
           <Button
@@ -280,7 +282,7 @@ export function Play() {
             onClick={() => void play()}
             disabled={gameCardBusy || !version}
           >
-            {busy ? 'Готовим…' : 'Играть'}
+            {busy ? t('busy.preparing') : t('action.play')}
           </Button>
         )}
       </Card>
@@ -298,7 +300,7 @@ export function Play() {
           {inst.stage && <p className="muted">{inst.stage}</p>}
           {error && <p className="error">{error}</p>}
           {inst.error && <p className="error">{inst.error}</p>}
-          {!hasTauri() && <p className="muted">Ядро не запущено — режим браузера.</p>}
+          {!hasTauri() && <p className="muted">{t('core.offline')}</p>}
         </div>
       )}
 
@@ -306,16 +308,16 @@ export function Play() {
         <div className="library">
           <section className="lib-section">
             <div className="lib-head">
-              <h2 className="retro-title">Сборки</h2>
+              <h2 className="retro-title">{t('lib.packs')}</h2>
               {packs.length > 0 && <span className="muted">{packs.length}</span>}
               <button className="link-btn lib-action" onClick={() => goPacks('catalog')}>
-                Каталог сборок →
+                {t('lib.packsAction')}
               </button>
             </div>
             {packs.length === 0 ? (
               <div className="muted lib-empty">
                 <span className="slot-cross" aria-hidden="true" />
-                <span>Готовых сборок нет — установите из каталога Modrinth, CurseForge или FTB.</span>
+                <span>{t('lib.packsEmpty')}</span>
               </div>
             ) : (
               <div className="mods-grid">{instanceGrid(packs)}</div>
@@ -324,16 +326,16 @@ export function Play() {
 
           <section className="lib-section">
             <div className="lib-head">
-              <h2 className="retro-title">Свои сборки</h2>
+              <h2 className="retro-title">{t('lib.own')}</h2>
               {own.length > 0 && <span className="muted">{own.length}</span>}
               <button className="link-btn lib-action" onClick={() => goPacks('mine')}>
-                Собрать свою →
+                {t('lib.ownAction')}
               </button>
             </div>
             {own.length === 0 ? (
               <div className="muted lib-empty">
                 <span className="slot-cross" aria-hidden="true" />
-                <span>Своя сборка — ванила или загрузчик под выбранную версию, соберётся сама.</span>
+                <span>{t('lib.ownEmpty')}</span>
               </div>
             ) : (
               <div className="mods-grid">{instanceGrid(own)}</div>
@@ -342,16 +344,16 @@ export function Play() {
 
           <section className="lib-section">
             <div className="lib-head">
-              <h2 className="retro-title">Скачанные версии</h2>
+              <h2 className="retro-title">{t('lib.versions')}</h2>
               {installed.length > 0 && <span className="muted">{installed.length}</span>}
               <button className="link-btn lib-action" onClick={() => setLoaderOpen(!loaderOpen)}>
-                {loaderOpen ? 'Скрыть установку' : '+ Установить загрузчик'}
+                {loaderOpen ? t('lib.hideLoader') : t('lib.installLoader')}
               </button>
             </div>
             {installed.length === 0 ? (
               <div className="muted lib-empty">
                 <span className="slot-cross" aria-hidden="true" />
-                <span>Ничего не скачано — выберите версию сверху и нажмите «Играть».</span>
+                <span>{t('lib.versionsEmpty')}</span>
               </div>
             ) : (
               <div className="ver-grid">
@@ -360,20 +362,20 @@ export function Play() {
                     key={v.id}
                     className={v.id === version ? 'mod-card ver-card on' : 'mod-card ver-card'}
                   >
-                    <div className="ver-head" onClick={() => setVersion(v.id)} title="Выбрать версию">
+                    <div className="ver-head" onClick={() => setVersion(v.id)} title={t('play.selectVersion')}>
                       <div className="ver-name">{v.id}</div>
-                      <span className="pack-badge">{v.loader || TYPE_LABEL[v.type] || v.type}</span>
+                      <span className="pack-badge">{v.loader || t(TYPE_KEY[v.type] ?? v.type)}</span>
                     </div>
                     <div className="mods-row-actions">
                       <Button bg="#2f7d4f" onClick={() => playVersion(v.id)} disabled={gameCardBusy}>
-                        {v.id === version && busy ? 'Готовим…' : 'Играть'}
+                        {v.id === version && busy ? t('busy.preparing') : t('action.play')}
                       </Button>
                       <Button
                         bg="#a03030"
                         onClick={() => void inst.removeVersion(v.id)}
                         disabled={gameCardBusy}
                       >
-                        Удалить
+                        {t('action.delete')}
                       </Button>
                     </div>
                   </Card>
@@ -397,19 +399,23 @@ export function Play() {
                   {builds.length > 0 ? (
                     <>
                       <span className="muted loader-hint">
-                        {tab} для {mcBase}
+                        {t('loader.hint', { loader: tab, mc: mcBase })}
                       </span>
                       <DropdownMenu>
                         <DropdownMenuTrigger>
-                          {pick ? (pick.recommended ? `${build} · рекоменд.` : build) : 'Сборка…'}
+                          {pick
+                            ? pick.recommended
+                              ? `${build}${t('suffix.rec')}`
+                              : build
+                            : t('placeholder.build')}
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="version-list">
                           {builds.map((b) => (
                             <DropdownMenuItem key={b.version}>
                               <div className="version-item" onClick={() => setBuild(b.version)}>
                                 {b.version}
-                                {b.recommended ? ' · рекоменд.' : ''}
-                                {!b.stable ? ' · тест' : ''}
+                                {b.recommended ? t('suffix.rec') : ''}
+                                {!b.stable ? t('suffix.test') : ''}
                               </div>
                             </DropdownMenuItem>
                           ))}
@@ -420,12 +426,14 @@ export function Play() {
                         onClick={() => void installBuild()}
                         disabled={installing || buildsBusy}
                       >
-                        {installing ? 'Ставим…' : 'Установить'}
+                        {installing ? t('busy.installing') : t('action.install')}
                       </Button>
                     </>
                   ) : (
                     <span className="muted loader-hint">
-                      {buildsBusy ? `Сборки ${tab}…` : `Сборок ${tab} под ${mcBase} нет`}
+                      {buildsBusy
+                        ? t('loader.checking', { loader: tab })
+                        : t('loader.none', { loader: tab, mc: mcBase })}
                     </span>
                   )}
                 </div>
@@ -442,7 +450,7 @@ export function Play() {
 
         <div className="side-column">
           <Card className="skin-card">
-            <h2 className="retro-title">Скин</h2>
+            <h2 className="retro-title">{t('skin.title')}</h2>
             <SkinView nick={accMode ? accName : nick} refreshKey={skinKey} />
             <label className="skin-buttons">
               <input
@@ -451,14 +459,14 @@ export function Play() {
                 className="skin-file"
                 onChange={(e) => void onSkinFile(e.target.files?.[0])}
               />
-              <span>Скин PNG</span>
+              <span>{t('skin.file')}</span>
             </label>
             <Button
               bg="#a03030"
               onClick={() => void removeSkin()}
               disabled={!accMode && !nick.trim()}
             >
-              Убрать
+              {t('action.remove')}
             </Button>
             {accEly && (
               <div className="skin-ely">
@@ -481,17 +489,14 @@ export function Play() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <Button bg="#2f7d4f" onClick={() => void uploadEly()} disabled={elyBusy}>
-                    {elyBusy ? 'Загружаем…' : 'На Ely.by'}
+                    {elyBusy ? t('busy.uploading') : t('skin.toEly')}
                   </Button>
                 </div>
-                {elySaved && <p className="muted">Скин загружен в аккаунт.</p>}
+                {elySaved && <p className="muted">{t('skin.saved')}</p>}
               </div>
             )}
             {skinError && <p className="error">{skinError}</p>}
-            <p className="muted skin-note">
-              Скин применяется через CustomSkinLoader в сборках с загрузчиком; с аккаунтом Ely.by —
-              через authlib-injector.
-            </p>
+            <p className="muted skin-note">{t('skin.note')}</p>
           </Card>
           <Servers version={version} />
           <News />

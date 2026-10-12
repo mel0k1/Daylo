@@ -19,19 +19,21 @@ import { onPackProgress, onPackImported, type PackProgress } from '../ipc/events
 import { useAccount } from '../state/account'
 import { useGame, NICK_RE } from '../state/game'
 import { useTheme, type ThemeName } from '../state/theme'
+import { useLang, useT, type Lang, type TKey } from '../i18n'
 import { useUi } from '../state/ui'
 import { hasTauri } from '../ipc/tauri'
 
 // Подписи провайдеров в карточке аккаунта
-const MODE_LABEL: Record<string, string> = {
-  msa: 'Microsoft',
-  ely: 'ely.by',
-  offline: 'оффлайн',
+const MODE_KEY: Record<string, TKey> = {
+  msa: 'acc.provider.msa',
+  ely: 'acc.provider.ely',
+  offline: 'acc.mode.offline',
 }
 
 // Аккаунтов может быть несколько (ely, msa, оффлайн-профили):
 // список с переключением кликом, активный подсвечен
 function AccountCard() {
+  const t = useT()
   const { info, accounts, login, error, init, startLogin, cancelLogin, switchTo, logout, addOffline } =
     useAccount()
   const [copied, setCopied] = useState(false)
@@ -64,48 +66,45 @@ function AccountCard() {
 
   return (
     <Card className="play-card">
-      <h2 className="retro-title">Аккаунт</h2>
+      <h2 className="retro-title">{t('acc.title')}</h2>
       {info?.name ? (
         <div className="acc-row">
           <div className="acc-info">
             <span>{info.name}</span>
             <span className="muted acc-uuid">
-              {MODE_LABEL[info.mode]} · {info.uuid}
+              {t(MODE_KEY[info.mode] ?? info.mode)} · {info.uuid}
             </span>
           </div>
           <Button bg="#a03030" onClick={() => void logout(info.uuid)}>
-            Выйти
+            {t('acc.logout')}
           </Button>
         </div>
       ) : (
         !login && (
-          <p className="muted">
-            Оффлайн-режим без авторизации. Добавь оффлайн-профиль по нику или войди в аккаунт —
-            профили сохраняются, переключаться можно в любой момент.
-          </p>
+          <p className="muted">{t('acc.offlineNote')}</p>
         )
       )}
       {login ? (
         <div className="ely-login">
-          <p>Введите код на странице входа {providerLabel}:</p>
+          <p>{t('acc.enterCode', { provider: providerLabel })}</p>
           <div className="user-code">{login.userCode}</div>
           <div className="play-row">
-            <Button onClick={() => void copyCode()}>{copied ? 'Скопировано' : 'Скопировать код'}</Button>
+            <Button onClick={() => void copyCode()}>{copied ? t('btn.copied') : t('btn.copyCode')}</Button>
             <a className="ely-link" href={login.verificationUri} target="_blank" rel="noreferrer">
               {login.verificationUri}
             </a>
           </div>
-          <p className="muted">Ждём подтверждение…</p>
+          <p className="muted">{t('acc.waiting')}</p>
           <Button bg="#a03030" onClick={cancelLogin}>
-            Отмена
+            {t('action.cancel')}
           </Button>
         </div>
       ) : (
         <div className="play-row">
           <Button bg="#2f7d4f" onClick={() => void startLogin('ely')}>
-            Войти через Ely.by
+            {t('acc.loginEly')}
           </Button>
-          <Button onClick={() => void startLogin('msa')}>Войти через Microsoft</Button>
+          <Button onClick={() => void startLogin('msa')}>{t('acc.loginMsa')}</Button>
         </div>
       )}
       {accounts.length > 0 && (
@@ -115,16 +114,16 @@ function AccountCard() {
               <button
                 className="acc-pick"
                 onClick={() => !a.active && void switchTo(a.uuid)}
-                title={a.active ? 'Активный аккаунт' : 'Сделать активным'}
+                title={a.active ? t('acc.active') : t('acc.makeActive')}
               >
                 <span>{a.name}</span>
-                <span className="muted">{MODE_LABEL[a.mode]}</span>
+                <span className="muted">{t(MODE_KEY[a.mode] ?? a.mode)}</span>
               </button>
               {!a.active && (
                 <button
                   className="acc-drop"
                   onClick={() => void logout(a.uuid)}
-                  title="Убрать аккаунт"
+                  title={t('acc.remove')}
                 >
                   ×
                 </button>
@@ -137,7 +136,7 @@ function AccountCard() {
         <Input
           value={nick}
           maxLength={16}
-          placeholder="Ник оффлайн-профиля"
+          placeholder={t('acc.nickPlaceholder')}
           onChange={(e) => setNick(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void addOfflineNick()}
         />
@@ -146,7 +145,7 @@ function AccountCard() {
           onClick={() => void addOfflineNick()}
           disabled={!NICK_RE.test(nick.trim())}
         >
-          Добавить
+          {t('action.add')}
         </Button>
       </div>
       {error && <p className="error">{error}</p>}
@@ -157,6 +156,7 @@ function AccountCard() {
 // Зеркало BMCLAPI ускоряет библиотеки и ассеты из России;
 // ключ CurseForge включает официальный API вместо зеркала
 function MirrorsCard() {
+  const t = useT()
   const [on, setOn] = useState(true)
   const [saved, setSaved] = useState(false)
   const [cfKey, setCfKeyState] = useState('')
@@ -196,36 +196,33 @@ function MirrorsCard() {
 
   return (
     <Card className="play-card">
-      <h2 className="retro-title">Загрузки</h2>
+      <h2 className="retro-title">{t('mirrors.title')}</h2>
       <label className="check-row">
         <input type="checkbox" checked={on} onChange={() => void toggle()} disabled={!hasTauri()} />
-        <span>Зеркало BMCLAPI для библиотек, ассетов и загрузчиков</span>
+        <span>{t('mirrors.bmclapi')}</span>
       </label>
       <p className="muted mirrors-note">
-        Оригинальные серверы Mojang и maven остаются запасным путём: если зеркало молчит, качаем
-        напрямую. {saved && 'Сохранено.'}
+        {t('mirrors.fallback')} {saved && t('status.saved')}
       </p>
       <div className="play-row">
         <Input
           className="mods-query"
           value={cfKey}
           onChange={(e) => setCfKeyState(e.target.value)}
-          placeholder="Ключ API CurseForge (необязательно)"
+          placeholder={t('mirrors.cfKey')}
         />
         <Button onClick={() => void saveKey()} disabled={!hasTauri()}>
-          {cfSaved ? 'Сохранено' : 'Применить'}
+          {cfSaved ? t('btn.saved') : t('btn.apply')}
         </Button>
       </div>
-      <p className="muted mirrors-note">
-        Моды и сборки CurseForge идут через публичное зеркало. Свой ключ включает официальный API,
-        если зеркало недоступно.
-      </p>
+      <p className="muted mirrors-note">{t('mirrors.cfNote')}</p>
     </Card>
   )
 }
 
 // Карточка обновления лаунчера: сводка релиза, тихая установка, ручная проверка
 function UpdateCard() {
+  const t = useT()
   const update = useUi((s) => s.update)
   const progress = useUi((s) => s.progress)
   const updateError = useUi((s) => s.updateError)
@@ -255,18 +252,18 @@ function UpdateCard() {
 
   return (
     <Card className="play-card">
-      <h2 className="retro-title">Обновление</h2>
+      <h2 className="retro-title">{t('update.title')}</h2>
       {update ? (
         <>
           <p>
-            Доступна v{update.version}
-            <span className="muted"> · {(update.size / 1048576).toFixed(1)} МБ</span>
+            {t('update.available', { v: update.version })}
+            <span className="muted"> · {t('units.mb', { n: (update.size / 1048576).toFixed(1) })}</span>
           </p>
           {summary && <p className="muted mirrors-note">{summary}</p>}
           {progress && (
             <div className="update-banner">
               <span className="muted">
-                {progress.done ? 'Устанавливаем…' : `Обновление: ${pct}%`}
+                {progress.done ? t('update.installing') : t('update.progress', { pct })}
               </span>
               <div className="update-bar">
                 <div
@@ -278,16 +275,16 @@ function UpdateCard() {
           )}
           {!progress && (
             <Button bg="#2f7d4f" onClick={() => void apply()}>
-              Установить и перезапуститься
+              {t('update.applyAndRestart')}
             </Button>
           )}
         </>
       ) : (
-        <p className="muted mirrors-note">Лаунчер свежей версии.</p>
+        <p className="muted mirrors-note">{t('update.fresh')}</p>
       )}
       <div className="play-row">
         <Button onClick={() => void check()} disabled={checking || !!progress}>
-          {checking ? 'Проверяем…' : 'Проверить сейчас'}
+          {checking ? t('busy.checking') : t('action.checkNow')}
         </Button>
       </div>
       {updateError && <p className="error">{updateError}</p>}
@@ -298,6 +295,7 @@ function UpdateCard() {
 // Окно запускаемой игры: размер и полноэкранный режим, общие для всех сборок.
 // Значения пишет бэкенд (clamp_window), фронту остаётся валидация для UX
 function WindowCard() {
+  const t = useT()
   const [width, setWidth] = useState('1280')
   const [height, setHeight] = useState('720')
   const [fullscreen, setFullscreen] = useState(false)
@@ -319,11 +317,11 @@ function WindowCard() {
     const w = Number.parseInt(width, 10)
     const h = Number.parseInt(height, 10)
     if (!Number.isFinite(w) || w < 320 || w > 7680) {
-      setError('ширина — число от 320 до 7680')
+      setError(t('error.width'))
       return
     }
     if (!Number.isFinite(h) || h < 240 || h > 4320) {
-      setError('высота — число от 240 до 4320')
+      setError(t('error.height'))
       return
     }
     setError('')
@@ -339,10 +337,10 @@ function WindowCard() {
 
   return (
     <Card className="play-card">
-      <h2 className="retro-title">Окно игры</h2>
+      <h2 className="retro-title">{t('window.title')}</h2>
       <div className="play-row">
         <label className="field">
-          <span>Ширина</span>
+          <span>{t('window.width')}</span>
           <Input
             className="ram"
             value={width}
@@ -355,7 +353,7 @@ function WindowCard() {
           />
         </label>
         <label className="field">
-          <span>Высота</span>
+          <span>{t('window.height')}</span>
           <Input
             className="ram"
             value={height}
@@ -377,15 +375,13 @@ function WindowCard() {
             setSaved(false)
           }}
         />
-        <span>Открывать игру на весь экран</span>
+        <span>{t('window.fullscreen')}</span>
       </label>
-      <p className="muted mirrors-note">
-        Размер окна запускаемой игры, по умолчанию 1280x720. Применится к следующему запуску.
-      </p>
+      <p className="muted mirrors-note">{t('window.note')}</p>
       {error && <p className="error">{error}</p>}
-      {saved && <p className="muted">Сохранено.</p>}
+      {saved && <p className="muted">{t('status.saved')}</p>}
       <div className="play-row">
-        <Button onClick={() => void save()}>Сохранить</Button>
+        <Button onClick={() => void save()}>{t('action.save')}</Button>
       </div>
     </Card>
   )
@@ -393,6 +389,7 @@ function WindowCard() {
 
 // Бэкапы миров: автобэкап перед запуском и сколько копий хранить на мир
 function BackupCard() {
+  const t = useT()
   const [on, setOn] = useState(true)
   const [keep, setKeep] = useState('5')
   const [saved, setSaved] = useState(false)
@@ -411,7 +408,7 @@ function BackupCard() {
   const save = async () => {
     const k = Number.parseInt(keep, 10)
     if (!Number.isFinite(k) || k < 1 || k > 30) {
-      setError('копий на мир — число от 1 до 30')
+      setError(t('error.keep'))
       return
     }
     setError('')
@@ -426,7 +423,7 @@ function BackupCard() {
 
   return (
     <Card className="play-card">
-      <h2 className="retro-title">Бэкапы миров</h2>
+      <h2 className="retro-title">{t('backups.title')}</h2>
       <label className="check-row">
         <input
           type="checkbox"
@@ -436,11 +433,11 @@ function BackupCard() {
             setSaved(false)
           }}
         />
-        <span>Бэкапить миры перед запуском</span>
+        <span>{t('backups.on')}</span>
       </label>
       <div className="play-row">
         <label className="field">
-          <span>Копий на мир</span>
+          <span>{t('backups.keep')}</span>
           <Input
             className="ram"
             value={keep}
@@ -452,20 +449,18 @@ function BackupCard() {
             maxLength={2}
           />
         </label>
-        <Button onClick={() => void save()}>Сохранить</Button>
+        <Button onClick={() => void save()}>{t('action.save')}</Button>
       </div>
-      <p className="muted mirrors-note">
-        Перед запуском архивируются только миры, изменившиеся после свежайшей копии.
-        Старые копии удаляются сами, keep-версии от восстановления живут неделю.
-      </p>
+      <p className="muted mirrors-note">{t('backups.note')}</p>
       {error && <p className="error">{error}</p>}
-      {saved && <p className="muted">Сохранено.</p>}
+      {saved && <p className="muted">{t('status.saved')}</p>}
     </Card>
   )
 }
 
 // Экспорт текущей сборки в файл и импорт файла-сборки
 function PacksCard() {
+  const t = useT()
   const [busy, setBusy] = useState('')
   const [stage, setStage] = useState('')
   const [error, setError] = useState('')
@@ -490,7 +485,7 @@ function PacksCard() {
     setError('')
     try {
       const path = await packExport(current)
-      if (path) setStage(`Сборка сохранена: ${path}`)
+      if (path) setStage(t('packsCard.savedPath', { path }))
     } catch (e) {
       setError(String(e))
     } finally {
@@ -505,7 +500,7 @@ function PacksCard() {
     setError('')
     try {
       const id = await packImport()
-      if (id) setStage(`Ставим сборку ${id}…`)
+      if (id) setStage(t('packsCard.installingFile', { id }))
       else setBusy('')
     } catch (e) {
       setError(String(e))
@@ -516,17 +511,14 @@ function PacksCard() {
 
   return (
     <Card className="play-card">
-      <h2 className="retro-title">Сборки</h2>
-      <p className="muted mirrors-note">
-        Файл-сборка — один json: версия игры, память и список модов. Моды и сама игра скачаются с
-        Modrinth и серверов Mojang при импорте.
-      </p>
+      <h2 className="retro-title">{t('packs.title')}</h2>
+      <p className="muted mirrors-note">{t('packsCard.note')}</p>
       <div className="play-row">
         <Button onClick={() => void doExport()} disabled={busy !== '' || !current}>
-          {busy === 'export' ? 'Сохраняем…' : 'Экспортировать текущую'}
+          {busy === 'export' ? t('busy.exporting') : t('packsCard.export')}
         </Button>
         <Button bg="#2f7d4f" onClick={() => void doImport()} disabled={busy !== ''}>
-          {busy === 'import' ? 'Импортируем…' : 'Импорт из файла'}
+          {busy === 'import' ? t('busy.importing') : t('packsCard.import')}
         </Button>
       </div>
       {stage && <p className="muted">{stage}</p>}
@@ -549,36 +541,68 @@ const choiceLabel = (i: InstanceInfo): string => {
 }
 
 // Тема оформления: чистый фронт, применяется сразу, работает без ядра
-const THEME_LABEL: Record<ThemeName, string> = {
-  dark: 'Тьма',
-  light: 'Светлая',
-  plains: 'Равнина',
-  nether: 'Ад',
+const THEME_KEY: Record<ThemeName, TKey> = {
+  dark: 'theme.dark',
+  light: 'theme.light',
+  plains: 'theme.plains',
+  nether: 'theme.nether',
 }
 
 function ThemeCard() {
+  const t = useT()
   const theme = useTheme((s) => s.theme)
   const setTheme = useTheme((s) => s.set)
   return (
     <Card className="play-card">
-      <h2 className="retro-title">Оформление</h2>
-      <div className="tabs">
-        {(Object.keys(THEME_LABEL) as ThemeName[]).map((t) => (
+      <h2 className="retro-title">{t('theme.title')}</h2>
+      <div className="tabs theme-tabs">
+        {(Object.keys(THEME_KEY) as ThemeName[]).map((tn) => (
           <button
-            key={t}
-            className={theme === t ? 'tab on' : 'tab'}
-            onClick={() => setTheme(t)}
+            key={tn}
+            className={theme === tn ? 'tab on' : 'tab'}
+            onClick={() => setTheme(tn)}
+            title={t(THEME_KEY[tn])}
           >
-            {THEME_LABEL[t]}
+            {/* Превью-миниатюра: небо с частицей, срез травы и земля в цветах темы */}
+            <span className={`tprev tprev-${tn}`} aria-hidden="true" />
+            {t(THEME_KEY[tn])}
           </button>
         ))}
       </div>
-      <p className="muted">Тема применяется сразу и запоминается до следующего запуска.</p>
+      <p className="muted">{t('theme.note')}</p>
+    </Card>
+  )
+}
+
+// Язык интерфейса: RU/EN, работает без ядра, запоминается в localStorage
+function LangCard() {
+  const t = useT()
+  const lang = useLang((s) => s.lang)
+  const setLang = useLang((s) => s.set)
+  const langs: { id: Lang; label: string }[] = [
+    { id: 'ru', label: 'Русский' },
+    { id: 'en', label: 'English' },
+  ]
+  return (
+    <Card className="play-card">
+      <h2 className="retro-title">{t('lang.title')}</h2>
+      <div className="tabs">
+        {langs.map((l) => (
+          <button
+            key={l.id}
+            className={lang === l.id ? 'tab on' : 'tab'}
+            onClick={() => setLang(l.id)}
+          >
+            {l.label}
+          </button>
+        ))}
+      </div>
     </Card>
   )
 }
 
 export function Settings() {
+  const t = useT()
   const [choices, setChoices] = useState<Choice[]>([])
   const [version, setVersion] = useState(localStorage.getItem('daylo.cfg.version') ?? '')
   const [ram, setRam] = useState('2048')
@@ -639,7 +663,7 @@ export function Settings() {
     setError('')
     const ramMb = Number.parseInt(ram, 10)
     if (!Number.isFinite(ramMb) || ramMb < 512 || ramMb > 32768) {
-      setError('память — число от 512 до 32768 МБ')
+      setError(t('error.ram'))
       return
     }
     try {
@@ -661,14 +685,14 @@ export function Settings() {
 
   return (
     <div className="screen">
-      <h1 className="retro-title">Настройки</h1>
+      <h1 className="retro-title">{t('settings.title')}</h1>
 
       {online && <AccountCard />}
 
       <Card className="play-card">
         <div className="play-row">
           <DropdownMenu>
-            <DropdownMenuTrigger>{currentLabel || 'Сборка…'}</DropdownMenuTrigger>
+            <DropdownMenuTrigger>{currentLabel || t('placeholder.build')}</DropdownMenuTrigger>
             <DropdownMenuContent className="version-list">
               {choices.map((c) => (
                 <DropdownMenuItem key={c.id}>
@@ -682,7 +706,7 @@ export function Settings() {
         </div>
 
         <label className="field">
-          <span>Память (МБ), по умолчанию 2048</span>
+          <span>{t('settings.memory')}</span>
           <Input
             className="ram"
             value={ram}
@@ -696,7 +720,7 @@ export function Settings() {
         </label>
 
         <label className="field">
-          <span>Дополнительные JVM-флаги, по одному в строке</span>
+          <span>{t('settings.flags')}</span>
           <textarea
             className="flags"
             value={flags}
@@ -709,13 +733,13 @@ export function Settings() {
           />
         </label>
 
-        {!online && <p className="muted">Ядро не запущено — режим браузера.</p>}
+        {!online && <p className="muted">{t('core.offline')}</p>}
         {error && <p className="error">{error}</p>}
-        {saved && <p className="muted">Сохранено.</p>}
+        {saved && <p className="muted">{t('status.saved')}</p>}
 
         <div className="play-row">
           <Button onClick={() => void save()} disabled={!online || !version}>
-            Сохранить
+            {t('action.save')}
           </Button>
         </div>
       </Card>
@@ -723,6 +747,8 @@ export function Settings() {
       {online && <WindowCard />}
 
       <ThemeCard />
+
+      <LangCard />
 
       {online && <BackupCard />}
 

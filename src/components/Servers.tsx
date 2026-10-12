@@ -10,6 +10,7 @@ import {
   type GameServer,
 } from '../ipc/commands'
 import { hasTauri } from '../ipc/tauri'
+import { useT, t as tr } from '../i18n'
 
 const offlineStub = (s: string): ServerStatus => ({
   online: false,
@@ -19,10 +20,11 @@ const offlineStub = (s: string): ServerStatus => ({
   players_online: 0,
   players_max: 0,
   favicon: null,
-  error: `${s}: нет связи`,
+  error: `${s}: ${tr('servers.noConn')}`,
 })
 
 export function Servers({ version }: { version: string }) {
+  const t = useT()
   const [servers, setServers] = useState<string[]>([])
   const [addr, setAddr] = useState('')
   const [statuses, setStatuses] = useState<Record<string, ServerStatus>>({})
@@ -101,7 +103,7 @@ export function Servers({ version }: { version: string }) {
 
   return (
     <Card className="servers-card">
-      <h2 className="retro-title">Серверы</h2>
+      <h2 className="retro-title">{t('servers.title')}</h2>
       <div className="srv-add">
         <Input
           className="srv-input"
@@ -118,7 +120,7 @@ export function Servers({ version }: { version: string }) {
       {error && <p className="error">{error}</p>}
       <div className="srv-list">
         {servers.length === 0 && (
-          <p className="muted srv-note">Добавьте адрес сервера — здесь появится его статус.</p>
+          <p className="muted srv-note">{t('servers.note')}</p>
         )}
         {servers.map((s) => {
           const st = statuses[s]
@@ -134,19 +136,19 @@ export function Servers({ version }: { version: string }) {
                 {st ? (
                   st.online ? (
                     <span className="muted srv-meta">
-                      {st.motd || 'онлайн'} · {st.players_online}/{st.players_max} · {st.ms} мс
+                      {st.motd || t('servers.online')} · {st.players_online}/{st.players_max} · {st.ms} мс
                     </span>
                   ) : (
-                    <span className="srv-meta srv-down">недоступен</span>
+                    <span className="srv-meta srv-down">{t('servers.down')}</span>
                   )
                 ) : (
-                  <span className="muted srv-meta">проверяем…</span>
+                  <span className="muted srv-meta">{t('servers.checking')}</span>
                 )}
               </div>
               <button
                 className="srv-del"
                 onClick={() => void remove(s)}
-                title="Убрать из списка"
+                title={t('servers.removeFromList')}
               >
                 ×
               </button>
@@ -156,7 +158,7 @@ export function Servers({ version }: { version: string }) {
       </div>
       {fromGame.length > 0 && (
         <div className="srv-game">
-          <span className="muted srv-game-title">Из игры ({version})</span>
+          <span className="muted srv-game-title">{t('servers.fromGame', { v: version })}</span>
           <div className="srv-list">
             {fromGame.map((s) => (
               <div key={s.address} className="srv-row">
@@ -171,7 +173,7 @@ export function Servers({ version }: { version: string }) {
                 </div>
                 <button
                   className="srv-del"
-                  title="Добавить в наблюдаемые"
+                  title={t('servers.track')}
                   onClick={() => void track(s.address)}
                 >
                   +
@@ -183,7 +185,7 @@ export function Servers({ version }: { version: string }) {
       )}
       {servers.length > 0 && (
         <Button bg="#2f7d4f" disabled={busy} onClick={() => void pingAll(servers)}>
-          {busy ? 'Пингуем…' : 'Обновить'}
+          {busy ? t('busy.pinging') : t('action.refresh')}
         </Button>
       )}
     </Card>

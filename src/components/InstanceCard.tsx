@@ -1,11 +1,12 @@
 import { Button, Card } from 'pixel-retroui'
 import type { InstanceInfo } from '../ipc/commands'
+import { useT, type TKey } from '../i18n'
 
-export const SOURCE_LABEL: Record<string, string> = {
-  modrinth: 'Modrinth',
-  curseforge: 'CurseForge',
-  ftb: 'FTB',
-  custom: 'Своя',
+const SOURCE_KEY: Record<string, TKey> = {
+  modrinth: 'source.modrinth',
+  curseforge: 'source.curseforge',
+  ftb: 'source.ftb',
+  custom: 'source.custom',
 }
 
 // Карточка установленной сборки: одна на экран «Играть» (библиотека)
@@ -29,6 +30,7 @@ export function InstanceCard({
   onVerify: () => void
   onRemove: () => void
 }) {
+  const t = useT()
   return (
     <Card className="mod-card pack-card">
       <div className="mod-head">
@@ -53,20 +55,26 @@ export function InstanceCard({
       </div>
       <div className="pack-badges">
         <span className="pack-badge">
-          {SOURCE_LABEL[info.source] ?? (info.kind === 'modpack' ? 'сборка' : 'ванила')}
+          {info.source in SOURCE_KEY
+            ? t(SOURCE_KEY[info.source])
+            : info.kind === 'modpack'
+              ? t('badge.modpack')
+              : t('type.release')}
         </span>
-        <span className="pack-badge">{info.ram_mb} МБ</span>
-        {info.mods_count > 0 && <span className="pack-badge">модов: {info.mods_count}</span>}
+        <span className="pack-badge">{t('units.mb', { n: info.ram_mb })}</span>
+        {info.mods_count > 0 && (
+          <span className="pack-badge">{t('badge.modsCount', { n: info.mods_count })}</span>
+        )}
       </div>
       <div className="mods-row-actions">
         <Button bg="#2f7d4f" onClick={onLaunch} disabled={launchDisabled}>
-          {launching ? 'Готовим…' : 'Играть'}
+          {launching ? t('busy.preparing') : t('action.play')}
         </Button>
         <Button onClick={onVerify} disabled={verifyDisabled}>
-          {verifying ? 'Проверяем…' : 'Проверить'}
+          {verifying ? t('busy.checking') : t('action.verify')}
         </Button>
         <Button bg="#a03030" onClick={onRemove}>
-          Удалить
+          {t('action.delete')}
         </Button>
       </div>
     </Card>

@@ -58,7 +58,6 @@
   --grass-top: #5b8f3a;
   --grass-dirt: #7a5a34;
   --check-a: #14171c;
-  --splash: #ffff55;
 
   font-family: var(--font-ui);
   font-size: 15px;
@@ -211,20 +210,6 @@ body::before {
   z-index: 5;
 }
 
-/* Полоса травы во всю ширину над панелью: верхний срез блока травы.
-   Цвета — переменные, темы перекрашивают (у «Ада» — багровая земля) */
-.bottombar::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: -8px;
-  height: 6px;
-  background: linear-gradient(var(--grass-top) 0 3px, var(--grass-dirt) 3px 6px);
-  border-top: 2px solid var(--ink);
-  pointer-events: none;
-}
-
 .logo-wrap {
   display: flex;
   flex-direction: column;
@@ -232,38 +217,6 @@ body::before {
   margin-right: 12px;
   flex-shrink: 0;
   position: relative;
-}
-
-/* Жёлтый сплэш под углом — приветствие на каждый запуск */
-.splash {
-  position: absolute;
-  left: 34px;
-  bottom: 34px;
-  transform: rotate(-12deg);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--splash);
-  text-shadow: 2px 2px 0 var(--ink);
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 6;
-  animation: splash-pulse 0.9s ease-in-out infinite alternate;
-}
-
-@keyframes splash-pulse {
-  from {
-    transform: rotate(-12deg) scale(1);
-  }
-
-  to {
-    transform: rotate(-12deg) scale(1.08);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .splash {
-    animation: none;
-  }
 }
 
 .logo {
@@ -370,8 +323,7 @@ body::before {
 /* На узком окне пункты меню сжимаются, правый чип — первым сдает место */
 @media (max-width: 1020px) {
   .bar-right .acc-chip .mode,
-  .bar-right .side-ver,
-  .splash {
+  .bar-right .side-ver {
     display: none;
   }
 
@@ -925,6 +877,61 @@ textarea::placeholder {
   border-color: var(--ink);
   box-shadow: 2px 2px 0 var(--ink);
   color: #fff;
+}
+
+/* Переключатель тем: табы колонкой с превью-миниатюрой */
+.theme-tabs {
+  gap: 8px;
+}
+
+.theme-tabs .tab {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 10px 6px;
+}
+
+/* Миниатюра темы: небо с частицей, полоса травы и земля — фиксированные
+   цвета каждой темы (не текущие переменные), чтобы видно «что получишь» */
+.tprev {
+  width: 36px;
+  height: 26px;
+  display: block;
+  border: 2px solid var(--ink);
+  background:
+    linear-gradient(var(--pv-dot) 0 0) 25px 4px / 4px 4px no-repeat,
+    linear-gradient(var(--pv-grass) 0 0) 0 calc(100% - 7px) / 100% 7px no-repeat,
+    linear-gradient(var(--pv-dirt) 0 0) 0 100% / 100% 7px no-repeat,
+    linear-gradient(var(--pv-sky) 0 0) 0 0 / 100% calc(100% - 7px) no-repeat;
+}
+
+.tprev-dark {
+  --pv-sky: #131722;
+  --pv-dot: #3d55e8;
+  --pv-grass: #5b8f3a;
+  --pv-dirt: #7a5a34;
+}
+
+.tprev-light {
+  --pv-sky: #d9d3c4;
+  --pv-dot: #3f63c8;
+  --pv-grass: #5b8f3a;
+  --pv-dirt: #8a6a3f;
+}
+
+.tprev-plains {
+  --pv-sky: #17220f;
+  --pv-dot: #71ad4a;
+  --pv-grass: #6fae46;
+  --pv-dirt: #6a4e2e;
+}
+
+.tprev-nether {
+  --pv-sky: #200d0c;
+  --pv-dot: #d05a44;
+  --pv-grass: #7a2a24;
+  --pv-dirt: #401c16;
 }
 
 .loader-hint {
@@ -1544,7 +1551,6 @@ html[data-theme='light'] {
   --grass-top: #5b8f3a;
   --grass-dirt: #7a5a34;
   --check-a: #e0dac9;
-  --splash: #c9971c;
 }
 
 /* Равнина — сумеречная зелень луга */
@@ -1595,7 +1601,6 @@ html[data-theme='plains'] {
   --grass-top: #6fae46;
   --grass-dirt: #6a4e2e;
   --check-a: #172013;
-  --splash: #ffff55;
 }
 
 /* Ад — багровый инферно: кримсон-нилайум вместо травы */
@@ -1646,7 +1651,6 @@ html[data-theme='nether'] {
   --grass-top: #7a2a24;
   --grass-dirt: #401c16;
   --check-a: #211212;
-  --splash: #ffff55;
 }
 
 .upd-err {

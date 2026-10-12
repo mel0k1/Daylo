@@ -16,6 +16,7 @@ import {
 import { hasTauri } from '../ipc/tauri'
 import { NICK_RE, useGame } from './game'
 import { useAccount } from './account'
+import { t } from '../i18n'
 
 interface InstancesState {
   instances: InstanceInfo[]
@@ -74,14 +75,14 @@ export const useInstances = create<InstancesState>((set, get) => ({
         return
       }
       const parts: string[] = []
-      if (p.broken > 0) parts.push(`исправлено файлов: ${p.broken}`)
-      if (p.mods_fixed > 0) parts.push(`модов восстановлено: ${p.mods_fixed}`)
-      if (p.mods_failed.length > 0) parts.push(`не вернулись: ${p.mods_failed.join(', ')}`)
+      if (p.broken > 0) parts.push(t('inst.filesFixed', { n: p.broken }))
+      if (p.mods_fixed > 0) parts.push(t('inst.modsFixed', { n: p.mods_fixed }))
+      if (p.mods_failed.length > 0) parts.push(t('inst.modsMissing', { list: p.mods_failed.join(', ') }))
       set({
         stage:
           parts.length === 0
-            ? 'Файлы проверены — всё в порядке'
-            : `Файлы проверены: ${parts.join('; ')}`,
+            ? t('inst.verifyClean')
+            : t('inst.verifySummary', { parts: parts.join('; ') }),
       })
     })
     // Игра может быть запущена с любого экрана; по выходу гасим статус
@@ -108,13 +109,13 @@ export const useInstances = create<InstancesState>((set, get) => ({
     const name = accName || nick || 'Player'
     // Без аккаунта имя уйдёт в игру как есть — проверяем до запуска
     if (!accName && !NICK_RE.test(name)) {
-      set({ error: 'ник: только латиница, цифры и подчёркивания, 1–16 символов' })
+      set({ error: t('error.nick') })
       return
     }
     set({ launching: id, error: '' })
     try {
       await launchInstance(id, name)
-      set({ stage: 'игра запущена' })
+      set({ stage: t('inst.launched') })
     } catch (e) {
       set({ error: String(e) })
     } finally {
@@ -135,7 +136,7 @@ export const useInstances = create<InstancesState>((set, get) => ({
   },
 
   remove: async (info) => {
-    if (!window.confirm(`Удалить сборку «${info.name}» вместе с мирами и модами?`)) return
+    if (!window.confirm(t('inst.removeConfirm', { name: info.name }))) return
     set({ error: '' })
     try {
       await instanceDelete(info.id)
@@ -148,7 +149,7 @@ export const useInstances = create<InstancesState>((set, get) => ({
   // Удаление скачанной версии из библиотеки: бэкенд откажет, если игра
   // запущена сама по себе или через сборку на этой версии
   removeVersion: async (id) => {
-    if (!window.confirm(`Удалить версию ${id} с диска?`)) return
+    if (!window.confirm(t('inst.removeVersionConfirm', { id }))) return
     set({ error: '' })
     try {
       await deleteVersion(id)

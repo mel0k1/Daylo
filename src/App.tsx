@@ -1,5 +1,6 @@
 import { useEffect, type CSSProperties, type ReactElement } from 'react'
 import { useUi } from './state/ui'
+import { useT, type TKey } from './i18n'
 import {
   IconPlay,
   IconPacks,
@@ -21,33 +22,16 @@ import { CrashModal } from './components/CrashModal'
 
 const navItems: {
   id: 'play' | 'packs' | 'mods' | 'worlds' | 'shots' | 'settings'
-  label: string
+  label: TKey
   icon: ReactElement
 }[] = [
-  { id: 'play', label: 'Играть', icon: <IconPlay /> },
-  { id: 'packs', label: 'Сборки', icon: <IconPacks /> },
-  { id: 'mods', label: 'Моды', icon: <IconMods /> },
-  { id: 'worlds', label: 'Миры', icon: <IconWorlds /> },
-  { id: 'shots', label: 'Скриншоты', icon: <IconShots /> },
-  { id: 'settings', label: 'Настройки', icon: <IconSettings /> },
+  { id: 'play', label: 'nav.play', icon: <IconPlay /> },
+  { id: 'packs', label: 'nav.packs', icon: <IconPacks /> },
+  { id: 'mods', label: 'nav.mods', icon: <IconMods /> },
+  { id: 'worlds', label: 'nav.worlds', icon: <IconWorlds /> },
+  { id: 'shots', label: 'nav.shots', icon: <IconShots /> },
+  { id: 'settings', label: 'nav.settings', icon: <IconSettings /> },
 ]
-
-// Сплэш у логотипа — один на запуск, как на титульном экране игры
-const SPLASHES = [
-  'Не копай прямо вниз!',
-  '100% пиксельно!',
-  'Алмазы на -54!',
-  'Не забудь про бэкапы!',
-  'Собери свою сборку!',
-  'Крипера не будет. Наверно.',
-  'Также попробуй настоящую игру!',
-  'Сделано с любовью к пикселям',
-  'Моды? Моды!',
-  'Пиксели навсегда!',
-  'Джава внутри!',
-  'Осторожно, зелья!',
-]
-const splash = SPLASHES[Math.floor(Math.random() * SPLASHES.length)]
 
 // Медленные пиксель-частицы, поднимающиеся снизу вверх (стиль портала).
 // Детерминированный набор: без рандома на каждом рендере
@@ -74,6 +58,7 @@ const PARTICLES: {
 ]
 
 export default function App() {
+  const t = useT()
   const screen = useUi((s) => s.screen)
   const ver = useUi((s) => s.ver)
   const update = useUi((s) => s.update)
@@ -125,9 +110,6 @@ export default function App() {
         <div className="logo-wrap">
           <div className="logo">Daylo</div>
           <div className="logo-strip" />
-          <span className="splash" aria-hidden="true">
-            {splash}
-          </span>
         </div>
         {navItems.map((item) => (
           <button
@@ -136,25 +118,25 @@ export default function App() {
             onClick={() => useUi.getState().setScreen(item.id)}
           >
             <span className="nav-ico">{item.icon}</span>
-            {item.label}
+            {t(item.label)}
           </button>
         ))}
         <div className="bar-right">
           {update && !progress && (
             <div className="update-chip">
-              <span className="muted">Доступна v{update.version}</span>
+              <span className="muted">{t('update.available', { v: update.version })}</span>
               <button
                 className="link-btn"
                 onClick={() => void useUi.getState().updateApply()}
               >
-                Обновить
+                {t('action.update')}
               </button>
             </div>
           )}
           {progress && (
             <div className="update-chip">
               <span className="muted">
-                {progress.done ? 'Устанавливаем…' : `Обновление: ${pct}%`}
+                {progress.done ? t('update.installing') : t('update.progress', { pct })}
               </span>
               <div className="update-bar">
                 <div

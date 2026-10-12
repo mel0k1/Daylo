@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Card } from 'pixel-retroui'
+import { useT, locale } from '../i18n'
 
 interface Release {
   tag_name: string
@@ -12,11 +13,12 @@ const URL = 'https://api.github.com/repos/mel0k1/Daylo/releases/latest'
 
 function fmtDate(iso: string): string {
   const d = new Date(iso)
-  return isNaN(d.getTime()) ? '' : d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+  return isNaN(d.getTime()) ? '' : d.toLocaleDateString(locale(), { day: 'numeric', month: 'long' })
 }
 
 // Лобби-новости в духе Millida: что нового в самом лаунчере — из GitHub Releases
 export function News() {
+  const t = useT()
   const [rel, setRel] = useState<Release | null>(null)
 
   useEffect(() => {
@@ -55,7 +57,7 @@ export function News() {
         target="_blank"
         rel="noreferrer"
       >
-        Все релизы
+        {t('news.all')}
       </a>
     </Card>
   )

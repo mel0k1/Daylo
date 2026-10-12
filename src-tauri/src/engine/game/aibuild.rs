@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use futures::future::join_all;
 use serde::Serialize;
 
 use super::super::core::http;
@@ -150,29 +151,60 @@ fn gateway_status(code: u16) -> String {
     }
 }
 
-// План сборки: промпт -> список модов -> живые проекты Modrinth с версиями
+// План сборки: промпт -> список модов -> живые проекты Modrinth с версиями.
+// Сеть — двумя параллельными волнами: сначала все поиски разом, затем все
+// версии найденных проектов. Последовательный вариант жил бы в 5-10 раз дольше:
+// до 24 запросов по ~секунде каждый
 pub async fn plan(user: &str, mc_version: &str, loader: &str) -> Result<Vec<AiPick>, String> {
     if user.trim().is_empty() {
         return Err("опиши сборку словами".into());
     }
     let queries = llm_queries(&plan_prompt(user, mc_version, loader)).await?;
-    let mut picks: Vec<AiPick> = Vec::new();
+
+    // Волна 1: параллельные поиски, берём топ-хит каждого запроса;
+    // join_all сохраняет порядок — план читается в порядке запросов модели
+    let gv = mc_version.to_string();
+    let tops: Vec<Option<modrinth::SearchHit>> = join_all(
+        queries
+            .iter()
+            .take(12)
+            .map(|q| {
+                let q = q.clone();
+                let gv = gv.clone();
+                async move {
+                    modrinth::search(&q, &gv)
+                        .await
+                        .ok()
+                        .and_then(|hits| hits.into_iter().next())
+                }
+            }),
+    )
+    .await;
     let mut seen: HashSet<String> = HashSet::new();
-    for q in queries.iter().take(12) {
-        let hits = match modrinth::search(q, mc_version).await {
-            Ok(h) => h,
-            Err(_) => continue,
-        };
-        let Some(hit) = hits.into_iter().next() else {
-            continue;
-        };
-        if !seen.insert(hit.project_id.clone()) {
-            continue;
+    let mut tops: Vec<modrinth::SearchHit> = tops
+        .into_iter()
+        .flatten()
+        .filter(|h| seen.insert(h.project_id.clone()))
+        .collect();
+    if tops.is_empty() {
+        return Err("модель не подобрала модов под эту игру — переформулируй запрос".into());
+    }
+
+    // Волна 2: параллельные списки версий под каждый найденный проект
+    let versions: Vec<Vec<modrinth::ModVersion>> = join_all(tops.iter().map(|h| {
+        let pid = h.project_id.clone();
+        let gv = gv.clone();
+        async move {
+            modrinth::versions(&pid, &gv)
+                .await
+                .ok()
+                .unwrap_or_default()
         }
-        let vers = match modrinth::versions(&hit.project_id, mc_version).await {
-            Ok(v) => v,
-            Err(_) => continue,
-        };
+    }))
+    .await;
+
+    let mut picks: Vec<AiPick> = Vec::new();
+    for (hit, vers) in tops.drain(..).zip(versions) {
         // Сначала версия под наш загрузчик, иначе любая совместимая с игрой
         let chosen = vers
             .iter()

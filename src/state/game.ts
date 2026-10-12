@@ -14,6 +14,7 @@ import {
   type GameExit,
   type CrashInfo,
 } from '../ipc/events'
+import { t } from '../i18n'
 
 interface GameState {
   versions: VersionEntry[]
@@ -60,7 +61,7 @@ export const useGame = create<GameState>((set, get) => ({
 
     onInstallProgress((p: InstallProgress) => {
       if (p.error) {
-        set({ busy: false, stage: 'ошибка', error: p.error })
+        set({ busy: false, stage: t('game.stageError'), error: p.error })
         return
       }
       const pct = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0
@@ -80,7 +81,7 @@ export const useGame = create<GameState>((set, get) => ({
     })
     onGameExit((e: GameExit) => {
       set({ playing: false, stage: '', progress: 0, crash: e.crash })
-      const tail = e.code === 0 ? 'Игра завершилась' : `Игра завершилась с кодом ${e.code ?? '?'}`
+      const tail = e.code === 0 ? t('game.exited') : t('game.exitedCode', { code: e.code ?? '?' })
       set((s) => ({ logs: [...s.logs.slice(-300), tail] }))
     })
 
@@ -126,14 +127,14 @@ export const useGame = create<GameState>((set, get) => ({
     const name = accName || nick.trim() || 'Player'
     // Гард для UX: без аккаунта имя уйдёт в игру как есть, ядро его отвергнет
     if (!accName && !NICK_RE.test(name)) {
-      set({ error: 'ник: только латиница, цифры и подчёркивания, 1–16 символов' })
+      set({ error: t('error.nick') })
       return
     }
-    set({ busy: true, error: '', stage: 'подготовка', progress: 0 })
+    set({ busy: true, error: '', stage: t('game.stagePreparing'), progress: 0 })
     try {
       // Аккаунт Ely.by важнее локального ника: ядро возьмёт его имя и токен
       await launchGame(version, name)
-      set({ busy: false, playing: true, stage: 'игра запущена' })
+      set({ busy: false, playing: true, stage: t('inst.launched') })
     } catch (e) {
       set({ busy: false, error: String(e) })
     }

@@ -10,6 +10,7 @@ import {
 } from 'pixel-retroui'
 import { listVersions, modrinthSearch, modrinthVersions, modrinthInstall, curseforgeSearch, curseforgeVersions, curseforgeInstall, modsList, modsDelete, modsUpdates, modsUpdate, type VersionEntry, type SearchHit, type ModVersion, type ModUpdate } from '../ipc/commands'
 import { hasTauri } from '../ipc/tauri'
+import { useT } from '../i18n'
 
 type View = 'mine' | 'catalog'
 type Source = 'modrinth' | 'curseforge'
@@ -21,6 +22,7 @@ function fmtDownloads(n: number): string {
 }
 
 export function Mods() {
+  const t = useT()
   const [versions, setVersions] = useState<VersionEntry[]>([])
   const [instance, setInstance] = useState(localStorage.getItem('daylo.mods.version') ?? '')
   const [view, setView] = useState<View>('mine')
@@ -115,7 +117,7 @@ export function Mods() {
           ? await modrinthSearch(query.trim(), instance)
           : await curseforgeSearch(query.trim(), instance),
       )
-      if (!instance) setError('выберите версию игры, чтобы отфильтровать совместимые моды')
+      if (!instance) setError(t('error.pickVersion'))
     } catch (e) {
       setError(String(e))
     } finally {
@@ -175,7 +177,7 @@ export function Mods() {
 
   const instancePicker = (
     <DropdownMenu>
-      <DropdownMenuTrigger>{instance || 'Версия…'}</DropdownMenuTrigger>
+      <DropdownMenuTrigger>{instance || t('placeholder.version')}</DropdownMenuTrigger>
       <DropdownMenuContent className="version-list">
         {releases.map((v) => (
           <DropdownMenuItem key={v.id}>
@@ -191,39 +193,39 @@ export function Mods() {
   return (
     <div className="screen mods-screen">
       <div className="mods-head">
-        <h1 className="retro-title">Моды</h1>
+        <h1 className="retro-title">{t('mods.title')}</h1>
         <div className="tabs">
           <button
             className={view === 'mine' ? 'tab on' : 'tab'}
             onClick={() => setView('mine')}
           >
-            Мои моды{installed.length > 0 ? ` · ${installed.length}` : ''}
+            {t('mods.mine')}{installed.length > 0 ? ` · ${installed.length}` : ''}
           </button>
           <button
             className={view === 'catalog' ? 'tab on' : 'tab'}
             onClick={() => setView('catalog')}
           >
-            Каталог
+            {t('mods.catalog')}
           </button>
         </div>
       </div>
 
       {error && <p className="error">{error}</p>}
-      {!online && <p className="muted">Ядро не запущено — режим браузера.</p>}
+      {!online && <p className="muted">{t('core.offline')}</p>}
 
       {view === 'mine' && (
         <Card className="mods-installed">
           <div className="mods-head">
             {instancePicker}
             <Button onClick={() => void check()} disabled={!online || !instance || checkBusy}>
-              {checkBusy ? 'Проверяем…' : 'Проверить обновления'}
+              {checkBusy ? t('busy.checking') : t('mods.check')}
             </Button>
           </div>
           {updates.length > 0 && (
             <p className="muted mods-updates-note">
-              Доступно обновлений: {updates.length}.{' '}
+              {t('mods.updatesNote', { n: updates.length })}{' '}
               <button className="link-btn" onClick={() => void applyAll()} disabled={updating !== ''}>
-                Обновить все
+                {t('action.updateAll')}
               </button>
             </p>
           )}
@@ -231,11 +233,11 @@ export function Mods() {
             <div className="mods-empty">
               <div className="mods-empty-icon" />
               <p className="muted">
-                В сборке {instance || '—'} пока нет модов.
+                {t('mods.emptyNote', { inst: instance || '—' })}
                 <br />
-                Загляни в «Каталог» — Modrinth и CurseForge под рукой.
+                {t('mods.emptyHint')}
               </p>
-              <Button onClick={() => setView('catalog')}>Открыть каталог</Button>
+              <Button onClick={() => setView('catalog')}>{t('action.openCatalog')}</Button>
             </div>
           ) : (
             <div className="mods-version-list">
@@ -247,7 +249,7 @@ export function Mods() {
                       <span className="mods-version-name">{file}</span>
                       {upd && (
                         <span className="mods-update-hint">
-                          {upd.current_version || 'старая версия'} → {upd.latest_version_number}
+                          {upd.current_version || t('mods.oldVersion')} → {upd.latest_version_number}
                         </span>
                       )}
                     </div>
@@ -258,11 +260,11 @@ export function Mods() {
                           onClick={() => void applyUpdate(upd)}
                           disabled={updating !== ''}
                         >
-                          {updating === upd.file ? 'Обновляем…' : 'Обновить'}
+                          {updating === upd.file ? t('busy.updating') : t('action.update')}
                         </Button>
                       )}
                       <Button bg="#a03030" onClick={() => void uninstall(file)}>
-                        Удалить
+                        {t('action.delete')}
                       </Button>
                     </div>
                   </div>
@@ -304,21 +306,21 @@ export function Mods() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && void search()}
-                placeholder={src === 'modrinth' ? 'Поиск на Modrinth…' : 'Поиск на CurseForge…'}
+                placeholder={src === 'modrinth' ? t('mods.searchMr') : t('mods.searchCf')}
               />
               {instancePicker}
               <Button onClick={() => void search()} disabled={!online || busy === 'search'}>
-                Найти
+                {t('action.search')}
               </Button>
             </div>
           </Card>
 
           {picked && (
             <Card className="mods-versions">
-              <h2 className="retro-title">Версии: {picked.title}</h2>
-              {busy === `mod:${picked.project_id}` && <p className="muted">Загрузка…</p>}
+              <h2 className="retro-title">{t('packs.versionsTitle', { title: picked.title })}</h2>
+              {busy === `mod:${picked.project_id}` && <p className="muted">{t('busy.loading')}</p>}
               {modVersions.length === 0 && busy !== `mod:${picked.project_id}` && (
-                <p className="muted">Под эту версию игры подходящих сборок нет.</p>
+                <p className="muted">{t('packs.noneForVersion')}</p>
               )}
               <div className="mods-version-list">
                 {modVersions.map((mv) => (
@@ -334,7 +336,7 @@ export function Mods() {
                       onClick={() => void install(mv)}
                       disabled={!instance || busy === `install:${mv.version_id}`}
                     >
-                      {busy === `install:${mv.version_id}` ? 'Ставим…' : 'Установить'}
+                      {busy === `install:${mv.version_id}` ? t('busy.installing') : t('action.install')}
                     </Button>
                   </div>
                 ))}
@@ -361,7 +363,7 @@ export function Mods() {
                   )}
                   <div>
                     <div className="mod-title">{h.title}</div>
-                    <div className="muted">{fmtDownloads(h.downloads)} скачиваний</div>
+                    <div className="muted">{t('downloads.count', { n: fmtDownloads(h.downloads) })}</div>
                   </div>
                 </div>
                 <p className="mod-desc">{h.description}</p>

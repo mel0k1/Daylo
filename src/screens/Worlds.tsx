@@ -13,17 +13,19 @@ import {
   type WorldInfo,
 } from '../ipc/commands'
 import { hasTauri } from '../ipc/tauri'
+import { useT, locale, type TKey } from '../i18n'
 
-const fmtSize = (bytes: number) => {
-  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} ГБ`
-  if (bytes >= 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024 / 1024))} МБ`
-  return `${Math.max(1, Math.round(bytes / 1024))} КБ`
+const fmtSize = (bytes: number, t: (k: TKey, v?: Record<string, string | number>) => string) => {
+  if (bytes >= 1024 * 1024 * 1024) return t('units.gb', { n: (bytes / 1024 / 1024 / 1024).toFixed(1) })
+  if (bytes >= 1024 * 1024) return t('units.mb', { n: Math.max(1, Math.round(bytes / 1024 / 1024)) })
+  return t('units.kb', { n: Math.max(1, Math.round(bytes / 1024)) })
 }
 
 const fmtDate = (secs: number) =>
-  secs > 0 ? new Date(secs * 1000).toLocaleString('ru-RU') : '—'
+  secs > 0 ? new Date(secs * 1000).toLocaleString(locale()) : '—'
 
 export function Worlds() {
+  const t = useT()
   const [instances, setInstances] = useState<InstanceInfo[]>([])
   const [id, setId] = useState(localStorage.getItem('daylo.worlds.instance') ?? '')
   const [worlds, setWorlds] = useState<WorldInfo[]>([])
@@ -48,7 +50,7 @@ export function Worlds() {
   const reload = useCallback(
     (inst: string) => {
       if (!inst) return
-      setBusy('Читаем миры…')
+      setBusy(t('worlds.reading'))
       void Promise.all([worldsList(inst), worldBackupsList(inst)])
         .then(([w, b]) => {
           setWorlds(w)
@@ -68,7 +70,7 @@ export function Worlds() {
 
   const backup = (world: string) => {
     if (!id) return
-    setBusy(`Бэкап «${world}»…`)
+    setBusy(t('worlds.backingUp', { world }))
     setError('')
     void worldBackupCreate(id, world)
       .then(() => reload(id))
@@ -78,8 +80,8 @@ export function Worlds() {
 
   const restore = (b: WorldBackup) => {
     if (!id) return
-    if (!window.confirm(`Заменить мир «${b.world}» копией из бэкапа? Текущая версия сохранится рядом (keep-…).`)) return
-    setBusy('Восстановление…')
+    if (!window.confirm(t('worlds.restoreConfirm', { world: b.world }))) return
+    setBusy(t('worlds.restoring'))
     setError('')
     void worldBackupRestore(id, b.file)
       .then(() => reload(id))
@@ -104,9 +106,9 @@ export function Worlds() {
   return (
     <div className="screen worlds-screen">
       <div className="shots-head">
-        <h1 className="retro-title">Миры</h1>
+        <h1 className="retro-title">{t('worlds.title')}</h1>
         <DropdownMenu>
-          <DropdownMenuTrigger>{id ? nameOf(id) : 'Сборка…'}</DropdownMenuTrigger>
+          <DropdownMenuTrigger>{id ? nameOf(id) : t('placeholder.build')}</DropdownMenuTrigger>
           <DropdownMenuContent className="version-list">
             {instances.map((i) => (
               <DropdownMenuItem key={i.id}>
@@ -121,19 +123,17 @@ export function Worlds() {
           onClick={() => void worldBackupsOpen(id).catch((e: unknown) => setError(String(e)))}
           disabled={!id}
         >
-          Папка бэкапов
+          {t('worlds.backupsFolder')}
         </Button>
       </div>
 
-      {!online && <p className="muted">Ядро не запущено — режим браузера.</p>}
+      {!online && <p className="muted">{t('core.offline')}</p>}
       {busy && <p className="muted">{busy}</p>}
       {error && <p className="error">{error}</p>}
 
       {id && !busy && worlds.length === 0 && (
         <Card className="play-card">
-          <p className="muted">
-            Миров нет. Запусти игру в этой сборке и создай мир — он появится здесь, и его можно будет сохранить в бэкап.
-          </p>
+          <p className="muted">{t('worlds.empty')}</p>
         </Card>
       )}
 
@@ -142,11 +142,11 @@ export function Worlds() {
           <Card key={w.name} className="world-card">
             <div className="world-head">
               <span className="world-name">{w.name}</span>
-              <span className="pack-badge">{fmtSize(w.size)}</span>
+              <span className="pack-badge">{fmtSize(w.size, t)}</span>
             </div>
-            <span className="muted">Играл: {fmtDate(w.modified)}</span>
+            <span className="muted">{t('worlds.played', { date: fmtDate(w.modified) })}</span>
             <Button bg="#2f7d4f" disabled={!!busy} onClick={() => backup(w.name)}>
-              Сделать бэкап
+              {t('worlds.makeBackup')}
             </Button>
           </Card>
         ))}
@@ -154,22 +154,22 @@ export function Worlds() {
 
       {backups.length > 0 && (
         <>
-          <h2 className="retro-title backups-title">Бэкапы</h2>
+          <h2 className="retro-title backups-title">{t('worlds.backups')}</h2>
           <div className="backup-list">
             {backups.map((b) => (
               <div key={b.file} className="backup-row">
                 <div className="backup-info">
                   <span className="world-name">{b.world}</span>
                   <span className="muted">
-                    {fmtDate(b.created)} · {fmtSize(b.size)}
+                    {fmtDate(b.created)} · {fmtSize(b.size, t)}
                   </span>
                 </div>
                 <div className="backup-actions">
                   <Button bg="#2f7d4f" disabled={!!busy} onClick={() => restore(b)}>
-                    Восстановить
+                    {t('action.restore')}
                   </Button>
                   <Button bg="#a03030" disabled={!!busy} onClick={() => remove(b)}>
-                    Удалить
+                    {t('action.delete')}
                   </Button>
                 </div>
               </div>

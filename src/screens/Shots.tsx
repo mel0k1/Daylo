@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button, Card, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from 'pixel-retroui'
 import { listVersions, shotsDelete, shotsList, shotsOpen, shotsRead, type Shot } from '../ipc/commands'
 import { hasTauri } from '../ipc/tauri'
+import { useT } from '../i18n'
 
 const MAX_SHOWN = 80
 
@@ -42,6 +43,7 @@ function ShotCard({
 }
 
 export function Shots() {
+  const t = useT()
   const [versions, setVersions] = useState<string[]>([])
   const [version, setVersion] = useState(localStorage.getItem('daylo.shots.version') ?? '')
   const [list, setList] = useState<Shot[]>([])
@@ -104,9 +106,9 @@ export function Shots() {
   return (
     <div className="screen shots-screen">
       <div className="shots-head">
-        <h1 className="retro-title">Скриншоты</h1>
+        <h1 className="retro-title">{t('nav.shots')}</h1>
         <DropdownMenu>
-          <DropdownMenuTrigger>{version || 'Сборка…'}</DropdownMenuTrigger>
+          <DropdownMenuTrigger>{version || t('placeholder.build')}</DropdownMenuTrigger>
           <DropdownMenuContent className="version-list">
             {versions.map((id) => (
               <DropdownMenuItem key={id}>
@@ -123,19 +125,17 @@ export function Shots() {
           }
           disabled={!version}
         >
-          Открыть папку
+          {t('action.openFolder')}
         </Button>
       </div>
 
-      {!online && <p className="muted">Ядро не запущено — режим браузера.</p>}
-      {busy && <p className="muted">Читаем папку…</p>}
+      {!online && <p className="muted">{t('core.offline')}</p>}
+      {busy && <p className="muted">{t('shots.reading')}</p>}
       {error && <p className="error">{error}</p>}
 
       {version && !busy && list.length === 0 && (
         <Card className="play-card">
-          <p className="muted">
-            Скриншотов нет. Снимки из игры (клавиша F2) появятся здесь автоматически.
-          </p>
+          <p className="muted">{t('shots.empty')}</p>
         </Card>
       )}
 
@@ -145,7 +145,7 @@ export function Shots() {
         ))}
       </div>
       {list.length > MAX_SHOWN && (
-        <p className="muted">Показаны последние {MAX_SHOWN}. Остальные — в папке снимков.</p>
+        <p className="muted">{t('shots.shownLast', { n: MAX_SHOWN })}</p>
       )}
 
       {open && (
@@ -154,7 +154,7 @@ export function Shots() {
             <div className="shot-view-head">
               <span className="shot-name">{open}</span>
               <Button bg="#a03030" onClick={() => void remove(open)}>
-                Удалить
+                {t('action.delete')}
               </Button>
             </div>
             {zoom && <img className="shot-full" src={zoom} alt={open} />}

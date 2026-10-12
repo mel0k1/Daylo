@@ -13,6 +13,7 @@ import {
   type AccountInfo,
 } from '../ipc/commands'
 import { hasTauri } from '../ipc/tauri'
+import { t } from '../i18n'
 
 type Provider = 'ely' | 'msa'
 
@@ -128,7 +129,7 @@ async function pollLoop(
     const current = get().login
     if (!current || current.deviceCode !== login.deviceCode) return
     if (Date.now() > login.deadline) {
-      set({ login: null, error: 'время действия кода истекло' })
+      set({ login: null, error: t('acc.codeExpired') })
       return
     }
     try {
@@ -141,7 +142,7 @@ async function pollLoop(
         return
       }
       if (r.status === 'error') {
-        set({ login: null, error: r.message ?? 'ely.by отклонил вход' })
+        set({ login: null, error: r.message ?? t('acc.elyRejected') })
         return
       }
     } catch {

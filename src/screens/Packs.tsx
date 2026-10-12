@@ -23,9 +23,17 @@ import {
 } from '../ipc/commands'
 import { onPackInstalled } from '../ipc/events'
 import { hasTauri } from '../ipc/tauri'
+import { useT, t as tr } from '../i18n'
 import { AiBuild } from '../components/AiBuild'
-import { InstanceCard, SOURCE_LABEL } from '../components/InstanceCard'
+import { InstanceCard } from '../components/InstanceCard'
 import { useInstances } from '../state/instances'
+
+// Бренды каталогов в placeholder — одинаковы в любом языке
+const SOURCE_BRAND: Record<string, string> = {
+  modrinth: 'Modrinth',
+  curseforge: 'CurseForge',
+  ftb: 'FTB',
+}
 
 type View = 'mine' | 'catalog'
 type Source = 'modrinth' | 'curseforge' | 'ftb'
@@ -39,7 +47,7 @@ const SOURCES: { id: Source; label: string }[] = [
 type OwnLoader = 'vanilla' | 'fabric' | 'quilt' | 'forge' | 'neoforge'
 
 const OWN_LOADERS: { id: OwnLoader; label: string }[] = [
-  { id: 'vanilla', label: 'Ванила' },
+  { id: 'vanilla', label: 'vanilla' },
   { id: 'fabric', label: 'Fabric' },
   { id: 'quilt', label: 'Quilt' },
   { id: 'forge', label: 'Forge' },
@@ -48,6 +56,7 @@ const OWN_LOADERS: { id: OwnLoader; label: string }[] = [
 
 // Сборка «своими руками»: версия игры, опционально загрузчик — остальное само
 function BuildOwnCard({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const t = useT()
   const [name, setName] = useState('')
   const [mcVersion, setMcVersion] = useState('')
   const [versions, setVersions] = useState<VersionEntry[]>([])
@@ -107,7 +116,7 @@ function BuildOwnCard({ open, onToggle }: { open: boolean; onToggle: () => void 
     setBusy(true)
     setError('')
     try {
-      await instanceCreate(name.trim() || 'Моя сборка', mcVersion, loader, build)
+      await instanceCreate(name.trim() || t('own.defaultName'), mcVersion, loader, build)
       setPending(true)
     } catch (e) {
       setError(String(e))
@@ -118,10 +127,8 @@ function BuildOwnCard({ open, onToggle }: { open: boolean; onToggle: () => void 
   return (
     <Card className="mods-installed build-own">
       <div className="mods-head">
-        <Button onClick={onToggle}>{open ? 'Свернуть' : 'Собрать свою'}</Button>
-        <p className="muted mirrors-note">
-          Ванила или загрузчик под выбранную версию — качается и ставится сама.
-        </p>
+        <Button onClick={onToggle}>{open ? t('own.collapse') : t('own.toggle')}</Button>
+        <p className="muted mirrors-note">{t('own.note')}</p>
       </div>
       {open && (
         <>
@@ -130,11 +137,11 @@ function BuildOwnCard({ open, onToggle }: { open: boolean; onToggle: () => void 
               className="mods-query"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Название сборки"
+              placeholder={t('own.namePlaceholder')}
               maxLength={32}
             />
             <DropdownMenu>
-              <DropdownMenuTrigger>{mcVersion || 'Версия…'}</DropdownMenuTrigger>
+              <DropdownMenuTrigger>{mcVersion || t('placeholder.version')}</DropdownMenuTrigger>
               <DropdownMenuContent className="version-list">
                 {releases.map((v) => (
                   <DropdownMenuItem key={v.id}>
@@ -153,7 +160,7 @@ function BuildOwnCard({ open, onToggle }: { open: boolean; onToggle: () => void 
                 className={loader === l.id ? 'tab on' : 'tab'}
                 onClick={() => setLoader(l.id)}
               >
-                {l.label}
+                {l.id === 'vanilla' ? t('type.release') : l.label}
               </button>
             ))}
           </div>
@@ -162,32 +169,38 @@ function BuildOwnCard({ open, onToggle }: { open: boolean; onToggle: () => void 
               (builds.length > 0 ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger>
-                    {build ? (builds.find((b) => b.version === build)?.recommended ? `${build} · рекоменд.` : build) : 'Сборка…'}
+                    {build
+                      ? builds.find((b) => b.version === build)?.recommended
+                        ? `${build}${t('suffix.rec')}`
+                        : build
+                      : t('placeholder.build')}
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="version-list">
                     {builds.map((b) => (
                       <DropdownMenuItem key={b.version}>
                         <div className="version-item" onClick={() => setBuild(b.version)}>
                           {b.version}
-                          {b.recommended ? ' · рекоменд.' : ''}
-                          {!b.stable ? ' · тест' : ''}
+                          {b.recommended ? t('suffix.rec') : ''}
+                          {!b.stable ? t('suffix.test') : ''}
                         </div>
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-                <span className="muted loader-hint">Сборок {loader} под {mcVersion} нет</span>
+                <span className="muted loader-hint">
+                  {t('loader.none', { loader, mc: mcVersion })}
+                </span>
               ))}
             <Button
               bg="#2f7d4f"
               onClick={() => void create()}
               disabled={busy || pending || !mcVersion || (loader !== 'vanilla' && !build)}
             >
-              {pending ? 'Ставим…' : 'Создать'}
+              {pending ? t('busy.installing') : t('own.create')}
             </Button>
           </div>
-          {pending && <p className="muted">Ставим сборку — прогресс виден на экране «Играть».</p>}
+          {pending && <p className="muted">{t('own.pending')}</p>}
           {error && <p className="error">{error}</p>}
         </>
       )}
@@ -202,6 +215,7 @@ function fmtDownloads(n: number): string {
 }
 
 export function Packs() {
+  const t = useT()
   const [view, setView] = useState<View>(() => {
     // Переход из библиотеки («Каталог сборок →») открывает нужный вид
     const saved = sessionStorage.getItem('daylo.packs.view')
@@ -281,7 +295,7 @@ export function Packs() {
     try {
       await packInstall(source, picked.id, pv.version_id, picked.icon_url)
       // Плейсхолдер до первого pack-progress из общего стора
-      useInstances.setState({ progress: 'установка сборки', packPct: 0 })
+      useInstances.setState({ progress: tr('packs.installPlaceholder'), packPct: 0 })
     } catch (e) {
       setError(String(e))
     }
@@ -292,7 +306,7 @@ export function Packs() {
   const versionPicker =
     source === 'ftb' ? null : (
       <DropdownMenu>
-        <DropdownMenuTrigger>{gv || 'Версия…'}</DropdownMenuTrigger>
+        <DropdownMenuTrigger>{gv || t('placeholder.version')}</DropdownMenuTrigger>
         <DropdownMenuContent className="version-list">
           {releases.map((v) => (
             <DropdownMenuItem key={v.id}>
@@ -308,19 +322,19 @@ export function Packs() {
   return (
     <div className="screen packs-screen">
       <div className="mods-head">
-        <h1 className="retro-title">Сборки</h1>
+        <h1 className="retro-title">{t('packs.title')}</h1>
         <div className="tabs">
           <button
             className={view === 'mine' ? 'tab on' : 'tab'}
             onClick={() => setView('mine')}
           >
-            Мои сборки{inst.instances.length > 0 ? ` · ${inst.instances.length}` : ''}
+            {t('packs.mine')}{inst.instances.length > 0 ? ` · ${inst.instances.length}` : ''}
           </button>
           <button
             className={view === 'catalog' ? 'tab on' : 'tab'}
             onClick={() => setView('catalog')}
           >
-            Каталог
+            {t('packs.catalog')}
           </button>
         </div>
       </div>
@@ -334,7 +348,7 @@ export function Packs() {
         </Card>
       )}
       {inst.stage && !inst.progress && <p className="muted">{inst.stage}</p>}
-      {!online && <p className="muted">Ядро не запущено — режим браузера.</p>}
+      {!online && <p className="muted">{t('core.offline')}</p>}
 
       {view === 'mine' && (
         <>
@@ -345,11 +359,11 @@ export function Packs() {
               <div className="mods-empty">
                 <div className="mods-empty-icon" />
                 <p className="muted">
-                  Сборок пока нет.
+                  {t('packs.empty')}
                   <br />
-                  Установи готовую из каталога — Modrinth, CurseForge или FTB.
+                  {t('packs.emptyHint')}
                 </p>
-                <Button onClick={() => setView('catalog')}>Открыть каталог</Button>
+                <Button onClick={() => setView('catalog')}>{t('action.openCatalog')}</Button>
               </div>
             </Card>
           ) : (
@@ -399,28 +413,27 @@ export function Packs() {
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && void search()}
                 placeholder={
-                  source === 'ftb' ? 'Поиск в каталоге FTB…' : `Поиск сборок на ${SOURCE_LABEL[source]}…`
+                  source === 'ftb'
+                    ? t('packs.ftbPlaceholder')
+                    : t('packs.searchOn', { src: SOURCE_BRAND[source] ?? source })
                 }
               />
               {versionPicker}
               <Button onClick={() => void search()} disabled={!online || busy === 'search'}>
-                Найти
+                {t('action.search')}
               </Button>
             </div>
             {source === 'curseforge' && (
-              <p className="muted mirrors-note">
-                CurseForge идёт через публичное зеркало; если оно молчит — добавь свой ключ API в
-                настройках.
-              </p>
+              <p className="muted mirrors-note">{t('packs.cfNote')}</p>
             )}
           </Card>
 
           {picked && (
             <Card className="mods-versions">
-              <h2 className="retro-title">Версии: {picked.title}</h2>
-              {busy === `pack:${picked.id}` && <p className="muted">Загрузка…</p>}
+              <h2 className="retro-title">{t('packs.versionsTitle', { title: picked.title })}</h2>
+              {busy === `pack:${picked.id}` && <p className="muted">{t('busy.loading')}</p>}
               {packVs.length === 0 && busy !== `pack:${picked.id}` && (
-                <p className="muted">Под эту версию игры подходящих сборок нет.</p>
+                <p className="muted">{t('packs.noneForVersion')}</p>
               )}
               <div className="mods-version-list">
                 {packVs.map((pv) => (
@@ -428,7 +441,7 @@ export function Packs() {
                     <div className="mods-version-info">
                       <span className="mods-version-name">{pv.name}</span>
                       <span className="muted">
-                        {pv.mc_versions.slice(0, 3).join(', ') || 'версии не указаны'}
+                        {pv.mc_versions.slice(0, 3).join(', ') || t('packs.noMcVersions')}
                         {pv.loaders.length > 0 ? ` · ${pv.loaders.join(', ')}` : ''}
                       </span>
                     </div>
@@ -437,7 +450,7 @@ export function Packs() {
                       onClick={() => void install(pv)}
                       disabled={inst.progress !== ''}
                     >
-                      Установить
+                      {t('action.install')}
                     </Button>
                   </div>
                 ))}
@@ -464,7 +477,7 @@ export function Packs() {
                   )}
                   <div>
                     <div className="mod-title">{h.title}</div>
-                    <div className="muted">{fmtDownloads(h.downloads)} скачиваний</div>
+                    <div className="muted">{t('downloads.count', { n: fmtDownloads(h.downloads) })}</div>
                   </div>
                 </div>
                 <p className="mod-desc">{h.description}</p>

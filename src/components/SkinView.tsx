@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { elySkin, msaSkin, skinLoad } from '../ipc/commands'
 import { hasTauri } from '../ipc/tauri'
 import { useAccount } from '../state/account'
+import { t } from '../i18n'
 
 const U = 5 // пикселей на «пиксель» модели
 
@@ -116,7 +117,7 @@ function loadImg(src: string): Promise<HTMLImageElement> {
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('скин не загрузился'))
+    img.onerror = () => reject(new Error(t('skin.notLoaded')))
     img.src = src
   })
 }
@@ -126,13 +127,13 @@ function loadImg(src: string): Promise<HTMLImageElement> {
 async function toTex(src: string): Promise<Tex> {
   const img = await loadImg(src)
   const w = img.width
-  if (w !== img.height && w !== img.height * 2) throw new Error('это не скин Minecraft')
+  if (w !== img.height && w !== img.height * 2) throw new Error(t('error.notSkin'))
   try {
     const c = document.createElement('canvas')
     c.width = w
     c.height = w
     const ctx = c.getContext('2d')
-    if (!ctx) throw new Error('нет canvas')
+    if (!ctx) throw new Error(t('error.noCanvas'))
     ctx.imageSmoothingEnabled = false
     ctx.drawImage(img, 0, 0)
     if (w === img.height * 2) {
@@ -323,7 +324,7 @@ export function SkinView({ nick, refreshKey }: Props) {
   return (
     <div className="skin-view">
       <Scene tex={tex} />
-      {!tex && <span className="muted skin-hint">скин не выбран</span>}
+      {!tex && <span className="muted skin-hint">{t('skin.hint')}</span>}
     </div>
   )
 }
