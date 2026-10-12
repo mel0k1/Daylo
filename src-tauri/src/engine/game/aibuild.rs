@@ -164,21 +164,16 @@ pub async fn plan(user: &str, mc_version: &str, loader: &str) -> Result<Vec<AiPi
     // Волна 1: параллельные поиски, берём топ-хит каждого запроса;
     // join_all сохраняет порядок — план читается в порядке запросов модели
     let gv = mc_version.to_string();
-    let tops: Vec<Option<modrinth::SearchHit>> = join_all(
-        queries
-            .iter()
-            .take(12)
-            .map(|q| {
-                let q = q.clone();
-                let gv = gv.clone();
-                async move {
-                    modrinth::search(&q, &gv)
-                        .await
-                        .ok()
-                        .and_then(|hits| hits.into_iter().next())
-                }
-            }),
-    )
+    let tops: Vec<Option<modrinth::SearchHit>> = join_all(queries.iter().take(12).map(|q| {
+        let q = q.clone();
+        let gv = gv.clone();
+        async move {
+            modrinth::search(&q, &gv)
+                .await
+                .ok()
+                .and_then(|hits| hits.into_iter().next())
+        }
+    }))
     .await;
     let mut seen: HashSet<String> = HashSet::new();
     let mut tops: Vec<modrinth::SearchHit> = tops
@@ -194,12 +189,7 @@ pub async fn plan(user: &str, mc_version: &str, loader: &str) -> Result<Vec<AiPi
     let versions: Vec<Vec<modrinth::ModVersion>> = join_all(tops.iter().map(|h| {
         let pid = h.project_id.clone();
         let gv = gv.clone();
-        async move {
-            modrinth::versions(&pid, &gv)
-                .await
-                .ok()
-                .unwrap_or_default()
-        }
+        async move { modrinth::versions(&pid, &gv).await.ok().unwrap_or_default() }
     }))
     .await;
 
